@@ -23,7 +23,9 @@ export function vec3ToLatLon(v: THREE.Vector3): { lat: number; lon: number } {
   return { lat, lon };
 }
 
-export function buildFillGeo(poly: Polygon): THREE.BufferGeometry {
+// Returns raw typed arrays so callers can use them
+// without wrapping in Three.js objects on the compute side.
+export function buildFillData(poly: Polygon): { positions: Float32Array; indices: Uint32Array } {
   const stripClose = (ring: number[][]): THREE.Vector2[] => {
     const pts = ring.map(([lon, lat]) => new THREE.Vector2(lon, lat));
     const f = pts[0], l = pts[pts.length - 1];
@@ -32,12 +34,11 @@ export function buildFillGeo(poly: Polygon): THREE.BufferGeometry {
   };
 
   // phase 1: 2D triangulation in lon/lat space
-  // can't triangulate on the sphere surface 
   const [outerRaw, ...holeRaws] = poly;
   const shape = new THREE.Shape(stripClose(outerRaw));
   shape.holes = holeRaws.map(h => new THREE.Path(stripClose(h)));
 
-  const raw = new THREE.ShapeGeometry(shape); // ear-clipping
+  const raw = new THREE.ShapeGeometry(shape);
   const rp  = raw.attributes.position as THREE.BufferAttribute;
   const ri  = raw.index!;
 
@@ -49,11 +50,7 @@ export function buildFillGeo(poly: Polygon): THREE.BufferGeometry {
     tris.push([ri.getX(i), ri.getX(i + 1), ri.getX(i + 2)]);
   raw.dispose();
 
-  // phase 2: subdivission
-  // split any triangle whose longest edge exceeds MAX_EDGE_DEG = 2° 
-  // until all edges are short enough to wrap around the sphere without overlaps
-  // (no edge is longer than ~220 km)
-
+  // phase 2: subdivide — split any edge longer than MAX_EDGE_DEG until all fit
   const midCache = new Map<string, number>();
   const getMid = (a: number, b: number): number => {
     const key = a < b ? `${a}-${b}` : `${b}-${a}`;
@@ -83,21 +80,25 @@ export function buildFillGeo(poly: Polygon): THREE.BufferGeometry {
     tris = next;
   }
 
-  // phase 3: project polygon to sphere
-
+  // phase 3: project to sphere
   const positions = new Float32Array(verts.length * 3);
   for (let i = 0; i < verts.length; i++) {
     const v = latLonToVec3(verts[i][1], verts[i][0], FILL_RADIUS);
     positions[i * 3] = v.x; positions[i * 3 + 1] = v.y; positions[i * 3 + 2] = v.z;
   }
 
-  const idxArr = new Uint32Array(tris.length * 3);
+  const indices = new Uint32Array(tris.length * 3);
   for (let i = 0; i < tris.length; i++) {
-    idxArr[i * 3] = tris[i][0]; idxArr[i * 3 + 1] = tris[i][1]; idxArr[i * 3 + 2] = tris[i][2];
+    indices[i * 3] = tris[i][0]; indices[i * 3 + 1] = tris[i][1]; indices[i * 3 + 2] = tris[i][2];
   }
 
+  return { positions, indices };
+}
+
+export function buildFillGeo(poly: Polygon): THREE.BufferGeometry {
+  const { positions, indices } = buildFillData(poly);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geo.setIndex(new THREE.BufferAttribute(idxArr, 1));
+  geo.setIndex(new THREE.BufferAttribute(indices, 1));
   return geo;
 }
