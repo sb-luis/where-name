@@ -1,0 +1,18 @@
+export const CAMERA_DIST = 3;
+export const MIN_FOV     = 0.3;
+export const MAX_FOV     = 80;
+
+export const LEVELS = [
+  { fovMin: 20, url: '/geo/collections/ne_110m_admin_0_countries/items?limit=10000' },
+  { fovMin: 4,  url: '/geo/collections/ne_50m_admin_0_countries/items?limit=10000' },
+  { fovMin: 0,  url: '/geo/collections/ne_10m_admin_0_countries/items?limit=10000' },
+] as const;
+
+export function lodForFov(fov: number): 0 | 1 | 2 {
+  if (fov > LEVELS[0].fovMin) return 0;
+  if (fov > LEVELS[1].fovMin) return 1;
+  return 2;
+}
+
+export const clamp = (v: number, lo: number, hi: number) =>
+  Math.max(lo, Math.min(hi, v));
