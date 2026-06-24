@@ -110,21 +110,21 @@ export function GameScreen({ targets, onEnd }: Props) {
       </div>
 
       {/* Country prompt card — updates in place to show feedback */}
-      <div className="pointer-events-none absolute top-14 inset-x-0 flex justify-center">
-        <div className="bg-white/90 rounded-2xl px-8 py-4 shadow backdrop-blur-sm text-center">
+      <div className="pointer-events-none absolute top-14 inset-x-0 flex justify-center px-6">
+        <div className="bg-white/90 rounded-2xl px-6 py-3 shadow backdrop-blur-sm text-center w-full max-w-xs">
           {feedback ? (
             <>
               <p className="text-xs font-medium text-gray-400 uppercase tracking-widest">
                 {feedback.correct ? 'Correct' : feedback.clicked ? 'You clicked' : 'Skipped'}
               </p>
-              <p className="text-2xl font-bold text-gray-800 mt-0.5">
+              <p className="text-xl sm:text-2xl font-bold text-gray-800 mt-0.5 truncate">
                 {feedback.clicked ?? country}
               </p>
             </>
           ) : (
             <>
               <p className="text-xs font-medium text-gray-400 uppercase tracking-widest">Find</p>
-              <p className="text-2xl font-bold text-gray-800 mt-0.5">{country}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-800 mt-0.5 truncate">{country}</p>
             </>
           )}
         </div>

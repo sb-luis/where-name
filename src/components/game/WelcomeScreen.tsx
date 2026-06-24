@@ -51,7 +51,7 @@ export function WelcomeScreen({ onStart, loading = false, countryCount = 0 }: Pr
     <main className="w-screen h-screen bg-[#f3f3f3] flex flex-col items-center justify-center gap-10">
 
       <div className="text-center space-y-3">
-        <h1 className="text-5xl font-black tracking-tight text-gray-900 tabular-nums">
+        <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-gray-900 tabular-nums whitespace-nowrap">
           {loaded ? (
             <><NumberFlow value={animatedCount} /> countries ready</>
           ) : (

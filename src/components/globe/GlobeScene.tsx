@@ -207,6 +207,42 @@ export function GlobeScene({ onSelect }: Props) {
     return () => canvas.removeEventListener('wheel', onWheel);
   }, [gl, setFov]);
 
+  // Pinch-to-zoom for mobile touch
+  useEffect(() => {
+    const canvas = gl.domElement;
+    let lastDist = 0;
+
+    const pinchDist = (e: TouchEvent) => {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) lastDist = pinchDist(e);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      e.preventDefault();
+      const dist = pinchDist(e);
+      if (lastDist > 0) {
+        const zoom  = 60 / fovRef.current;
+        const speed = Math.max(0.15, 2.5 / Math.pow(zoom + 0.5, 0.6));
+        const delta = (lastDist - dist) * 0.15;
+        setFov(fovRef.current + delta * speed);
+      }
+      lastDist = dist;
+    };
+
+    canvas.addEventListener('touchstart', onTouchStart, { passive: true });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => {
+      canvas.removeEventListener('touchstart', onTouchStart);
+      canvas.removeEventListener('touchmove', onTouchMove);
+    };
+  }, [gl, setFov]);
+
   // Bootstrap: trigger LOD 0, then pre-build LODs 1 and 2 in the worker while the
   // user interacts. All computation is off-thread 
   useEffect(() => {
