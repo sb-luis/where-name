@@ -231,7 +231,7 @@ export function GlobeScene({ onSelect }: Props) {
       if (e.touches.length !== 2) return;
       e.preventDefault();
       const dist = touchDist(e);
-      if (lastDist > 0) zoomByRatio(Math.pow(lastDist / dist, 0.3));
+      if (lastDist > 0) zoomByRatio(Math.pow(lastDist / dist, 0.1));
       lastDist = dist;
     };
 
