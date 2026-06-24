@@ -51,26 +51,32 @@ export function WelcomeScreen({ onStart, loading = false, countryCount = 0 }: Pr
     <main className="w-screen h-dvh bg-[#f3f3f3] flex flex-col items-center justify-center gap-10">
 
       <div className="text-center space-y-3">
-        <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-gray-900 tabular-nums whitespace-nowrap">
-          {loaded ? (
-            <><NumberFlow value={animatedCount} /> countries ready</>
-          ) : (
-            <><NumberFlow value={fetchValue} format={{ maximumFractionDigits: 2 }} /><span className="ml-1">{fetchUnit}</span></>
-          )}
-        </h1>
-        <p className={`text-base text-gray-400 transition-all duration-500 delay-150 ${
-          loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
-        }`}>
-          how many can you guess in 1 minute?
-        </p>
+        {loading ? (
+          <>
+            <p className="text-lg text-gray-600 font-medium">world is loading</p>
+            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-gray-900 tabular-nums whitespace-nowrap">
+              <NumberFlow value={fetchValue} format={{ maximumFractionDigits: 2 }} /><span className="ml-1">{fetchUnit}</span>
+            </h1>
+          </>
+        ) : (
+          <>
+            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-gray-900 tabular-nums whitespace-nowrap">
+              <NumberFlow value={animatedCount} /> countries ready
+            </h1>
+            <p className="text-base text-gray-400">
+              how many can you guess in 1 minute?
+            </p>
+          </>
+        )}
       </div>
 
       <button
         onClick={onStart}
-        className={`px-10 py-3.5 rounded-full font-semibold text-base transition-all duration-150 ${
-          loading
-            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-            : 'bg-gray-900 text-white hover:bg-gray-700 active:scale-95'
+        disabled={loading}
+        className={`px-10 py-3.5 rounded-full font-semibold text-base transition-all duration-500 ${
+          loaded
+            ? 'bg-gray-900 text-white hover:bg-gray-700 active:scale-95 opacity-100 translate-y-0'
+            : 'opacity-0 translate-y-8 pointer-events-none'
         }`}
       >
         Start Game
