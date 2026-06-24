@@ -5,7 +5,7 @@ RUN npm ci --omit=dev
 
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package.json tsconfig.json ./
+COPY package.json package-lock.json tsconfig.json ./
 COPY src ./src
 RUN npm ci && npx tsc --outDir dist
 
