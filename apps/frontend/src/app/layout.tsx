@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { GeoDataProvider } from '@/lib/geo/GeoDataContext';
+import { SocketProvider } from '@/lib/multiplayer/SocketContext';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -18,7 +19,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="h-full">
       <body className="h-full">
-        <GeoDataProvider>{children}</GeoDataProvider>
+        <SocketProvider>
+          <GeoDataProvider>{children}</GeoDataProvider>
+        </SocketProvider>
       </body>
     </html>
   );
