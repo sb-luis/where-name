@@ -66,27 +66,23 @@ export function WelcomePage({
     <main className="w-screen h-dvh bg-[#f3f3f3] flex flex-col items-center justify-between py-12 px-6">
 
       {/* ── Title ── */}
-      <div className="text-center shrink-0">
+      <div className="text-center space-y-3">
         {loading ? (
-          <div key="loading" className="anim-fade-up">
-            <p className="text-sm font-semibold text-gray-400 uppercase tracking-widest mb-2">
-              world is loading
-            </p>
-            <h1 className="text-5xl font-black tracking-tight text-gray-900 tabular-nums">
-              <NumberFlow value={fetchValue} format={{ maximumFractionDigits: 2 }} />
-              <span className="text-3xl ml-1.5 font-bold">{fetchUnit}</span>
+          <>
+            <p className="text-lg text-gray-600 font-medium">world is loading</p>
+            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-gray-900 tabular-nums whitespace-nowrap">
+              <NumberFlow value={fetchValue} format={{ maximumFractionDigits: 2 }} /><span className="ml-1">{fetchUnit}</span>
             </h1>
-          </div>
+          </>
         ) : (
-          <div key="ready" className="anim-fade-up">
-            <h1 className="text-5xl font-black tracking-tight text-gray-900 tabular-nums">
-              <NumberFlow value={animatedCount} />
-              <span className="ml-2">countries</span>
+          <>
+            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-gray-900 tabular-nums whitespace-nowrap">
+              <NumberFlow value={animatedCount} /> countries ready
             </h1>
-            <p className="text-base text-gray-400 mt-2">
+            <p className="text-base text-gray-400">
               how many can you guess in 1 minute?
             </p>
-          </div>
+          </>
         )}
       </div>
 

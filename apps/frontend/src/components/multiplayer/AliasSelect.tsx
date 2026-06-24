@@ -22,7 +22,7 @@ export function AliasSelect({ onSubmit }: Props) {
         value={value}
         onChange={e => setValue(e.target.value)}
         maxLength={20}
-        placeholder="Pick a name…"
+        placeholder="pick an alias…"
         autoFocus
         className="flex-1 min-w-0 px-5 py-3 rounded-full bg-black/[0.06] text-gray-900 font-semibold text-base focus:outline-none placeholder:text-gray-400 placeholder:font-normal"
       />
