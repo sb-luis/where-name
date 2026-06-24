@@ -194,44 +194,44 @@ export function GlobeScene({ onSelect }: Props) {
     };
   }, []);
 
-  // Custom wheel handler - zoom via FOV, not camera distance
+  // Geometric zoom: fov *= ratio, so total zoom = product of all ratios = finalDist/initialDist.
+  // This is frame-rate independent — result is the same whether 10 or 60 events fire.
+  const zoomByRatio = useCallback((ratio: number) => {
+    setFov(fovRef.current * ratio);
+  }, [setFov]);
+
+  // Wheel: normalize deltaY across deltaMode (pixels/lines/pages) then convert to a ratio.
   useEffect(() => {
     const canvas = gl.domElement;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const zoom  = 60 / fovRef.current;
-      const speed = Math.max(0.15, 2.5 / Math.pow(zoom + 0.5, 0.6));
-      setFov(fovRef.current + (e.deltaY > 0 ? speed : -speed));
+      const pixels = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 600 : 1);
+      zoomByRatio(Math.exp(pixels * 0.0008));
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', onWheel);
-  }, [gl, setFov]);
+  }, [gl, zoomByRatio]);
 
-  // Pinch-to-zoom for mobile touch
+  // Pinch: ratio of successive distances is the natural geometric zoom factor.
   useEffect(() => {
     const canvas = gl.domElement;
     let lastDist = 0;
 
-    const pinchDist = (e: TouchEvent) => {
+    const touchDist = (e: TouchEvent) => {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       return Math.sqrt(dx * dx + dy * dy);
     };
 
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) lastDist = pinchDist(e);
+      if (e.touches.length === 2) lastDist = touchDist(e);
     };
 
     const onTouchMove = (e: TouchEvent) => {
       if (e.touches.length !== 2) return;
       e.preventDefault();
-      const dist = pinchDist(e);
-      if (lastDist > 0) {
-        const zoom  = 60 / fovRef.current;
-        const speed = Math.max(0.15, 2.5 / Math.pow(zoom + 0.5, 0.6));
-        const delta = (lastDist - dist) * 0.15;
-        setFov(fovRef.current + delta * speed);
-      }
+      const dist = touchDist(e);
+      if (lastDist > 0) zoomByRatio(lastDist / dist);
       lastDist = dist;
     };
 
@@ -241,7 +241,7 @@ export function GlobeScene({ onSelect }: Props) {
       canvas.removeEventListener('touchstart', onTouchStart);
       canvas.removeEventListener('touchmove', onTouchMove);
     };
-  }, [gl, setFov]);
+  }, [gl, zoomByRatio]);
 
   // Bootstrap: trigger LOD 0, then pre-build LODs 1 and 2 in the worker while the
   // user interacts. All computation is off-thread 
