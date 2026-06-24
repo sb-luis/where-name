@@ -12,7 +12,7 @@ function extractNames(geojson: GeoCollection): string[] {
   return [...seen]
 }
 
-// Starts loading the 10m dataset in the background and returns the name list
+// Starts loading the 110m dataset in the background and returns the name list
 // once ready. Returns an empty array while loading — callers should disable
 // any "start" action until the array is non-empty.
 export function useCountryNames(): string[] {
@@ -20,7 +20,8 @@ export function useCountryNames(): string[] {
   const [names, setNames] = useState<string[]>([])
 
   useEffect(() => {
-    loadCollection(LEVELS[2].url).then(geojson => setNames(extractNames(geojson)))
+    // we will use only the 110m dataet for prompting
+    loadCollection(LEVELS[0].url).then(geojson => setNames(extractNames(geojson)))
   }, [loadCollection])
 
   return names
