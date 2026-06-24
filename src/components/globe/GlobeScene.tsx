@@ -142,13 +142,22 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
 
       // All heavy computation (tessellation, subdivision, sphere projection) runs
       // in the worker — off the main thread — so the render loop is never blocked.
-      const response = await new Promise<WorkerResponse>(resolve => {
-        const handler = (e: MessageEvent<WorkerResponse>) => {
+      const response = await new Promise<WorkerResponse>((resolve, reject) => {
+        const onMessage = (e: MessageEvent<WorkerResponse>) => {
           if (e.data.level !== level) return;
-          worker.removeEventListener('message', handler);
+          cleanup();
           resolve(e.data);
         };
-        worker.addEventListener('message', handler);
+        const onError = (e: ErrorEvent) => {
+          cleanup();
+          reject(new Error(`Geo worker error: ${e.message}`));
+        };
+        const cleanup = () => {
+          worker.removeEventListener('message', onMessage);
+          worker.removeEventListener('error', onError);
+        };
+        worker.addEventListener('message', onMessage);
+        worker.addEventListener('error', onError);
         worker.postMessage({ level, geojson });
       });
 
