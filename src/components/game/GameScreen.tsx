@@ -7,8 +7,8 @@ import type { GlobeHandle } from '@/components/globe/Globe'
 import type { RoundResult } from '@/lib/game/types'
 
 const GAME_DURATION_S  = 60
-const FIND_LINGER_MS   = 1400
-const FEEDBACK_MS      = 900
+const FEEDBACK_MS      = 1200 
+const BREATHER_MS      = 2800
 
 interface Feedback {
   correct: boolean
@@ -31,9 +31,8 @@ export function GameScreen({ targets, onEnd }: Props) {
   const startTimeRef    = useRef(performance.now())
   const doneRef         = useRef(false)
   const endedRef        = useRef(false)
-  const inFindPhaseRef  = useRef(true)
   const gameEndRef      = useRef(Date.now() + GAME_DURATION_S * 1000)
-  const pausedAtRef     = useRef<number | null>(Date.now()) // starts paused on first country
+  const pausedAtRef     = useRef<number | null>(null)
   const globeRef        = useRef<GlobeHandle>(null)
   const onEndRef        = useRef(onEnd)
   onEndRef.current      = onEnd
@@ -54,26 +53,18 @@ export function GameScreen({ targets, onEnd }: Props) {
     return () => clearInterval(id)
   }, [])
 
-  // Each new country: pause for FIND_LINGER_MS, then go live
+  // Each new country: go live immediately, unpausing the clock if it was paused
   useEffect(() => {
-    setIsLive(false)
-    inFindPhaseRef.current = true
-    pausedAtRef.current = Date.now()
-
-    const t = setTimeout(() => {
-      setIsLive(true)
-      inFindPhaseRef.current = false
-      if (pausedAtRef.current !== null) {
-        gameEndRef.current += Date.now() - pausedAtRef.current
-        pausedAtRef.current = null
-      }
-    }, FIND_LINGER_MS)
-
-    return () => clearTimeout(t)
+    if (pausedAtRef.current !== null) {
+      gameEndRef.current += Date.now() - pausedAtRef.current
+      pausedAtRef.current = null
+    }
+    setIsLive(true)
   }, [currentIndex])
 
   const advance = useCallback(() => {
     if (endedRef.current) return
+    globeRef.current?.clearHighlight()
     setCurrentIndex(prev => {
       const next = prev + 1
       currentIndexRef.current = next
@@ -92,7 +83,7 @@ export function GameScreen({ targets, onEnd }: Props) {
   }, [targets, advance])
 
   const handleSelect = useCallback((name: string | null) => {
-    if (!name || doneRef.current || endedRef.current || inFindPhaseRef.current) return
+    if (!name || doneRef.current || endedRef.current) return
     doneRef.current = true
     const country = targets[currentIndexRef.current]
     const correct = name === country
@@ -102,8 +93,17 @@ export function GameScreen({ targets, onEnd }: Props) {
       ...(correct && { timeMs: Math.round(performance.now() - startTimeRef.current) }),
     })
     setFeedback({ correct, clicked: correct ? null : name })
-    setIsLive(false) // dim skip + timer while feedback shows
-    setTimeout(advance, FEEDBACK_MS)
+    setIsLive(false)
+    if (correct) {
+      globeRef.current?.highlightCorrect(country)
+      setTimeout(advance, FEEDBACK_MS)
+    } else {
+      // Pause the clock for the breather period
+      pausedAtRef.current = Date.now()
+      globeRef.current?.highlightWrong(country)
+      globeRef.current?.flyTo(country)
+      setTimeout(advance, BREATHER_MS)
+    }
   }, [targets, advance])
 
   const country = targets[currentIndex] ?? ''
@@ -118,7 +118,7 @@ export function GameScreen({ targets, onEnd }: Props) {
 
   return (
     <div className="relative w-screen h-dvh">
-      <Globe ref={globeRef} onSelect={handleSelect} showLabel={false} />
+      <Globe ref={globeRef} onSelect={handleSelect} showLabel={false} interactive={isLive} />
 
       {/* Single full-width top card containing all HUD elements */}
       <div className="pointer-events-none absolute top-5 inset-x-0 px-5">

@@ -8,15 +8,20 @@ import { CAMERA_DIST, MAX_FOV, fovToSlider, sliderToFov } from '@/lib/geo/lod';
 
 export interface GlobeHandle {
   reset: () => void;
+  flyTo: (countryName: string) => void;
+  highlightCorrect: (name: string) => void;
+  highlightWrong: (name: string) => void;
+  clearHighlight: () => void;
 }
 
 interface GlobeProps {
   onSelect?: (name: string | null) => void;
   showLabel?: boolean;
+  interactive?: boolean;
 }
 
 export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
-  { onSelect, showLabel = true },
+  { onSelect, showLabel = true, interactive = true },
   ref,
 ) {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
@@ -42,7 +47,17 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
     sceneRef.current?.reset();
   }, []);
 
-  useImperativeHandle(ref, () => ({ reset: handleReset }), [handleReset]);
+  const handleFlyTo = useCallback((countryName: string) => {
+    sceneRef.current?.flyTo(countryName);
+  }, []);
+
+  useImperativeHandle(ref, () => ({
+    reset: handleReset,
+    flyTo: handleFlyTo,
+    highlightCorrect: (name: string) => sceneRef.current?.highlightCorrect(name),
+    highlightWrong:   (name: string) => sceneRef.current?.highlightWrong(name),
+    clearHighlight:   ()             => sceneRef.current?.clearHighlight(),
+  }), [handleReset, handleFlyTo]);
 
   return (
     <div className="relative w-full h-full">
@@ -51,7 +66,7 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
         gl={{ antialias: true }}
         style={{ width: '100%', height: '100%' }}
       >
-        <GlobeScene ref={sceneRef} onSelect={handleSelect} onFovChange={handleFovChange} />
+        <GlobeScene ref={sceneRef} onSelect={handleSelect} onFovChange={handleFovChange} interactive={interactive} />
       </Canvas>
 
       <div className="globe-zoom-slider-wrap">

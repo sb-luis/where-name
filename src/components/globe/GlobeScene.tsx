@@ -10,7 +10,7 @@ import { vec3ToLatLon } from '@/lib/geo/geometry';
 import { pickCountry } from '@/lib/geo/hit-test';
 import { fetchGeo } from '@/lib/geo/fetch';
 import { LEVELS, lodForFov, clamp, CAMERA_DIST, MIN_FOV, MAX_FOV } from '@/lib/geo/lod';
-import { C_OCEAN, C_LAND, C_BORDER, C_SELECTED } from '@/lib/geo/palette';
+import { C_OCEAN, C_LAND, C_BORDER, C_SELECTED, C_CORRECT, C_WRONG } from '@/lib/geo/palette';
 import type { GeoCollection } from '@/lib/geo/types';
 import type { WorkerResponse } from '@/workers/geoBuilder.worker';
 
@@ -21,9 +21,11 @@ interface LodData {
 }
 
 interface Materials {
-  fillDim:  THREE.MeshBasicMaterial;
-  fillHigh: THREE.MeshBasicMaterial;
-  border:   THREE.LineBasicMaterial;
+  fillDim:    THREE.MeshBasicMaterial;
+  fillHigh:   THREE.MeshBasicMaterial;
+  fillCorrect: THREE.MeshBasicMaterial;
+  fillWrong:  THREE.MeshBasicMaterial;
+  border:     THREE.LineBasicMaterial;
 }
 
 function applyMat(group: THREE.Group, mat: THREE.Material) {
@@ -68,22 +70,31 @@ function reconstructLodData(response: WorkerResponse, mats: Materials): LodData 
 export interface GlobeSceneHandle {
   setFov: (fov: number) => void;
   reset: () => void;
+  flyTo: (countryName: string) => void;
+  highlightCorrect: (name: string) => void;
+  highlightWrong: (name: string) => void;
+  clearHighlight: () => void;
 }
 
 interface Props {
   onSelect: (name: string | null) => void;
   onFovChange?: (fov: number) => void;
+  interactive?: boolean;
 }
 
-export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScene({ onSelect, onFovChange }, ref) {
+export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScene({ onSelect, onFovChange, interactive = true }, ref) {
+  const interactiveRef = useRef(interactive);
+  interactiveRef.current = interactive;
   const { scene, camera, gl } = useThree();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
 
   const mats = useMemo<Materials>(() => ({
-    fillDim:  new THREE.MeshBasicMaterial({ color: C_LAND,     side: THREE.DoubleSide }),
-    fillHigh: new THREE.MeshBasicMaterial({ color: C_SELECTED, side: THREE.DoubleSide }),
-    border:   new THREE.LineBasicMaterial({ color: C_BORDER,   depthTest: true, depthWrite: false }),
+    fillDim:     new THREE.MeshBasicMaterial({ color: C_LAND,     side: THREE.DoubleSide }),
+    fillHigh:    new THREE.MeshBasicMaterial({ color: C_SELECTED, side: THREE.DoubleSide }),
+    fillCorrect: new THREE.MeshBasicMaterial({ color: C_CORRECT,  side: THREE.DoubleSide }),
+    fillWrong:   new THREE.MeshBasicMaterial({ color: C_WRONG,    side: THREE.DoubleSide }),
+    border:      new THREE.LineBasicMaterial({ color: C_BORDER,   depthTest: true, depthWrite: false }),
   }), []);
 
   const workerRef       = useRef<Worker | null>(null);
@@ -95,8 +106,11 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
   const currentLevelRef = useRef(-1);
   const selectedNameRef  = useRef<string | null>(null);
   const selectedGroupRef = useRef<THREE.Group | null>(null);
+  const gameHlNameRef    = useRef<string | null>(null);
+  const gameHlMatRef     = useRef<THREE.MeshBasicMaterial | null>(null);
   const fovRef          = useRef(MAX_FOV);
   const aliveRef        = useRef(true);
+  const flyRafRef       = useRef<number | null>(null);
 
   const pc = camera as THREE.PerspectiveCamera;
 
@@ -118,6 +132,38 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
     if (g) { selectedGroupRef.current = g; applyMat(g, mats.fillHigh); }
   }, []);
 
+  const clearGameHighlight = useCallback(() => {
+    if (!gameHlNameRef.current) return;
+    for (let i = 0; i < 3; i++) {
+      const d = lodDataRef.current[i];
+      if (d) {
+        const g = d.fillMap.get(gameHlNameRef.current!);
+        if (g) applyMat(g, mats.fillDim);
+      }
+    }
+    gameHlNameRef.current = null;
+    gameHlMatRef.current  = null;
+  }, []);
+
+  const restoreGameHighlight = useCallback((fillMap: Map<string, THREE.Group>) => {
+    if (!gameHlNameRef.current || !gameHlMatRef.current) return;
+    const g = fillMap.get(gameHlNameRef.current);
+    if (g) applyMat(g, gameHlMatRef.current);
+  }, []);
+
+  const setGameHighlight = useCallback((name: string, mat: THREE.MeshBasicMaterial) => {
+    clearGameHighlight();
+    gameHlNameRef.current = name;
+    gameHlMatRef.current  = mat;
+    for (let i = 0; i < 3; i++) {
+      const d = lodDataRef.current[i];
+      if (d) {
+        const g = d.fillMap.get(name);
+        if (g) applyMat(g, mat);
+      }
+    }
+  }, [clearGameHighlight]);
+
   const applyLod = useCallback((level: number) => {
     const data = lodDataRef.current[level];
     if (!data) return;
@@ -133,7 +179,8 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
     data.borders.visible = true;
     data.fills.visible   = true;
     restoreSelection(data.fillMap);
-  }, [clearSelectionMaterials, restoreSelection]);
+    restoreGameHighlight(data.fillMap);
+  }, [clearSelectionMaterials, restoreSelection, restoreGameHighlight]);
 
   // Sends geojson to the worker and resolves with the geometry response.
   // Multiple callers for the same level share one in-flight Promise via buildPromiseRef.
@@ -210,13 +257,86 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
     }
   }, [pc, applyLod, loadLod]);
 
+  const animateTo = useCallback((targetDir: THREE.Vector3, targetFov: number) => {
+    if (flyRafRef.current !== null) {
+      cancelAnimationFrame(flyRafRef.current);
+      flyRafRef.current = null;
+    }
+
+    const startPos  = pc.position.clone();
+    const startFov  = fovRef.current;
+    const duration  = 1200;
+    const startTime = performance.now();
+
+    const controls = controlsRef.current;
+    if (controls) controls.enabled = false;
+
+    const tick = () => {
+      const raw  = Math.min((performance.now() - startTime) / duration, 1);
+      const tArc = raw < 0.5 ? 4 * raw * raw * raw : 1 - Math.pow(-2 * raw + 2, 3) / 2;
+
+      const dir = startPos.clone().normalize().lerp(targetDir, tArc).normalize();
+      pc.position.copy(dir.multiplyScalar(CAMERA_DIST));
+      pc.lookAt(0, 0, 0);
+
+      setFov(clamp(startFov + (targetFov - startFov) * tArc, MIN_FOV, MAX_FOV));
+
+      if (raw < 1) {
+        flyRafRef.current = requestAnimationFrame(tick);
+      } else {
+        flyRafRef.current = null;
+        if (controls) { controls.enabled = true; controls.update(); }
+      }
+    };
+    flyRafRef.current = requestAnimationFrame(tick);
+  }, [pc, setFov]);
+
+  const flyTo = useCallback((countryName: string) => {
+    let centroid: { lat: number; lon: number } | null = null;
+    for (const geo of geojsonsRef.current) {
+      if (!geo) continue;
+      const feat = geo.features.find(f => {
+        const n = String(f.properties?.NAME ?? f.properties?.ADMIN ?? '');
+        return n === countryName;
+      });
+      if (!feat) continue;
+
+      const polys = feat.geometry.type === 'Polygon'
+        ? [feat.geometry.coordinates as number[][][]]
+        : feat.geometry.coordinates as number[][][][];
+
+      let ring = polys[0][0];
+      for (const poly of polys) {
+        if (poly[0].length > ring.length) ring = poly[0];
+      }
+      let sumLon = 0, sumLat = 0;
+      for (const [lon, lat] of ring) { sumLon += lon; sumLat += lat; }
+      centroid = { lat: sumLat / ring.length, lon: sumLon / ring.length };
+      break;
+    }
+    if (!centroid) return;
+
+    const phi = (90 - centroid.lat) * (Math.PI / 180);
+    const theta = (centroid.lon + 180) * (Math.PI / 180);
+    const targetDir = new THREE.Vector3(
+      -Math.sin(phi) * Math.cos(theta),
+       Math.cos(phi),
+       Math.sin(phi) * Math.sin(theta),
+    );
+    animateTo(targetDir, 35);
+  }, [animateTo]);
+
+  // Initial camera position direction: [CAMERA_DIST, 0, 0] → normalized [1, 0, 0]
+  const HOME_DIR = new THREE.Vector3(1, 0, 0);
+
   useImperativeHandle(ref, () => ({
     setFov,
-    reset() {
-      controlsRef.current?.reset();
-      setFov(MAX_FOV);
-    },
-  }), [setFov]);
+    reset() { animateTo(HOME_DIR, MAX_FOV); },
+    flyTo,
+    highlightCorrect: (name: string) => setGameHighlight(name, mats.fillCorrect),
+    highlightWrong:   (name: string) => setGameHighlight(name, mats.fillWrong),
+    clearHighlight:   clearGameHighlight,
+  }), [setFov, flyTo, setGameHighlight, clearGameHighlight, mats]);
 
   // Create worker before the bootstrap effect so workerRef is populated when loadLod runs.
   useEffect(() => {
@@ -327,11 +447,14 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
       }
       mats.fillDim.dispose();
       mats.fillHigh.dispose();
+      mats.fillCorrect.dispose();
+      mats.fillWrong.dispose();
       mats.border.dispose();
     };
   }, [scene, mats]);
 
   const handleDoubleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
+    if (!interactiveRef.current) return;
     e.stopPropagation();
     const { lat, lon } = vec3ToLatLon(e.point.clone().normalize());
     const features = geojsonsRef.current[activeLodRef.current]?.features ?? [];
