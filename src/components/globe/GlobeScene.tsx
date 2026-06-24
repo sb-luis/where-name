@@ -231,6 +231,51 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
     return () => canvas.removeEventListener('wheel', onWheel);
   }, [gl, zoomByRatio]);
 
+  // Pinch-to-zoom: detect two-finger pinch and convert distance change to zoom ratio.
+  useEffect(() => {
+    const canvas = gl.domElement;
+    let prevPinchDist = 0;
+
+    const getTouchDistance = (touches: TouchList): number => {
+      if (touches.length < 2) return 0;
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        prevPinchDist = getTouchDistance(e.touches);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const currentDist = getTouchDistance(e.touches);
+        if (prevPinchDist > 0) {
+          const ratio = currentDist / prevPinchDist;
+          zoomByRatio(1 / ratio);
+        }
+        prevPinchDist = currentDist;
+      }
+    };
+
+    const onTouchEnd = () => {
+      prevPinchDist = 0;
+    };
+
+    canvas.addEventListener('touchstart', onTouchStart, { passive: true });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    canvas.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      canvas.removeEventListener('touchstart', onTouchStart);
+      canvas.removeEventListener('touchmove', onTouchMove);
+      canvas.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [gl, zoomByRatio]);
+
   // Bootstrap: trigger LOD 0, then pre-build LODs 1 and 2 in the worker while the
   // user interacts. All computation is off-thread 
   useEffect(() => {
