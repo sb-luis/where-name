@@ -25,7 +25,7 @@ export default function ResultsPage() {
       results={results}
       mode={mode}
       elapsedSeconds={elapsedSeconds ?? undefined}
-      onContinue={() => router.push('/')}
+      onReturn={() => router.push('/')}
     />
   )
 }

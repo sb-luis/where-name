@@ -69,7 +69,7 @@ export function WelcomePage({
     <main className="w-screen h-dvh bg-[#f3f3f3] flex flex-col items-center justify-between py-12 px-6">
 
       {/* ── Title ── */}
-      <div className="text-center space-y-3">
+      <div className="text-center space-y-2">
         {loading ? (
           <>
             <p className="text-lg text-gray-600 font-medium">world is loading</p>
@@ -111,7 +111,7 @@ export function WelcomePage({
             onClick={onStart}
             className="w-full py-3 rounded-full bg-gray-900 text-white font-semibold text-base hover:bg-gray-700 active:scale-95 transition-all duration-150"
           >
-            Start Game
+            play 
           </button>
           {(onPractice || onExplore) && (
             <div className="flex gap-2">
@@ -120,7 +120,7 @@ export function WelcomePage({
                   onClick={onPractice}
                   className="flex-1 py-3 rounded-full border border-gray-200 text-gray-500 font-medium text-base hover:bg-gray-50 active:scale-95 transition-all duration-150"
                 >
-                  Practice
+                  practice
                 </button>
               )}
               {onExplore && (
@@ -128,7 +128,7 @@ export function WelcomePage({
                   onClick={onExplore}
                   className="flex-1 py-3 rounded-full border border-gray-200 text-gray-500 font-medium text-base hover:bg-gray-50 active:scale-95 transition-all duration-150"
                 >
-                  Explore
+                  explore
                 </button>
               )}
             </div>

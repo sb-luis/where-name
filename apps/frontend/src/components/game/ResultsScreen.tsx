@@ -8,7 +8,7 @@ interface Props {
   results:         RoundResult[]
   mode?:           'timed' | 'practice'
   elapsedSeconds?: number
-  onContinue:      () => void
+  onReturn:      () => void
 }
 
 function formatElapsed(s: number): string {
@@ -16,7 +16,7 @@ function formatElapsed(s: number): string {
   return `${Math.floor(s / 60)}m ${s % 60}s`
 }
 
-export function ResultsScreen({ results, mode = 'timed', elapsedSeconds, onContinue }: Props) {
+export function ResultsScreen({ results, mode = 'timed', elapsedSeconds, onReturn }: Props) {
   const correct = results.filter(r => r.outcome === 'correct').length
   const skipped = results.filter(r => r.outcome === 'skipped').length
   const wrong   = results.filter(r => r.outcome === 'wrong').length
@@ -93,13 +93,13 @@ export function ResultsScreen({ results, mode = 'timed', elapsedSeconds, onConti
             onClick={handleShare}
             className="flex-1 py-2.5 rounded-full border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50 transition-colors"
           >
-            {copied ? 'Copied!' : 'Share'}
+            {copied ? 'copied!' : 'share'}
           </button>
           <button
-            onClick={onContinue}
+            onClick={onReturn}
             className="flex-1 py-2.5 rounded-full bg-gray-900 text-white text-sm font-semibold hover:bg-gray-700 active:scale-95 transition-all duration-150"
           >
-            Continue
+            back 
           </button>
         </div>
 

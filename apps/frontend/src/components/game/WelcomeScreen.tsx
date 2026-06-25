@@ -83,7 +83,7 @@ export function WelcomeScreen({ onStart, loading = false, countryCount = 0 }: Pr
             : 'opacity-0 translate-y-8 pointer-events-none'
         }`}
       >
-        Start Game
+        play        
       </button>
 
     </main>
