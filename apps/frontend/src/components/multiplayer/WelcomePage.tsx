@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import NumberFlow from '@number-flow/react'
 import { PresenceGlobe } from './PresenceGlobe'
-import { AliasSelect } from './AliasSelect'
 import type { CursorData } from '@/lib/multiplayer/types'
 
 interface Props {
@@ -12,8 +11,6 @@ interface Props {
   onExplore?:       () => void
   loading?:         boolean
   countryCount?:    number
-  alias:            string | null
-  onAliasSubmit:    (alias: string) => void
   cursors?:         CursorData[]
   initialPosition?: { lat: number; lng: number }
   onCursorMove?:    (lat: number, lng: number) => void
@@ -31,8 +28,6 @@ export function WelcomePage({
   onExplore,
   loading = false,
   countryCount = 0,
-  alias,
-  onAliasSubmit,
   cursors = [],
   initialPosition,
   onCursorMove,
@@ -111,38 +106,34 @@ export function WelcomePage({
       <div className={`w-full max-w-xs shrink-0 transition-all duration-500 ${
         loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
       }`}>
-        {alias ? (
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={onStart}
-              className="w-full py-3 rounded-full bg-gray-900 text-white font-semibold text-base hover:bg-gray-700 active:scale-95 transition-all duration-150"
-            >
-              Start Game
-            </button>
-            {(onPractice || onExplore) && (
-              <div className="flex gap-2">
-                {onPractice && (
-                  <button
-                    onClick={onPractice}
-                    className="flex-1 py-3 rounded-full border border-gray-200 text-gray-500 font-medium text-base hover:bg-gray-50 active:scale-95 transition-all duration-150"
-                  >
-                    Practice
-                  </button>
-                )}
-                {onExplore && (
-                  <button
-                    onClick={onExplore}
-                    className="flex-1 py-3 rounded-full border border-gray-200 text-gray-500 font-medium text-base hover:bg-gray-50 active:scale-95 transition-all duration-150"
-                  >
-                    Explore
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        ) : (
-          <AliasSelect onSubmit={onAliasSubmit} />
-        )}
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={onStart}
+            className="w-full py-3 rounded-full bg-gray-900 text-white font-semibold text-base hover:bg-gray-700 active:scale-95 transition-all duration-150"
+          >
+            Start Game
+          </button>
+          {(onPractice || onExplore) && (
+            <div className="flex gap-2">
+              {onPractice && (
+                <button
+                  onClick={onPractice}
+                  className="flex-1 py-3 rounded-full border border-gray-200 text-gray-500 font-medium text-base hover:bg-gray-50 active:scale-95 transition-all duration-150"
+                >
+                  Practice
+                </button>
+              )}
+              {onExplore && (
+                <button
+                  onClick={onExplore}
+                  className="flex-1 py-3 rounded-full border border-gray-200 text-gray-500 font-medium text-base hover:bg-gray-50 active:scale-95 transition-all duration-150"
+                >
+                  Explore
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
     </main>

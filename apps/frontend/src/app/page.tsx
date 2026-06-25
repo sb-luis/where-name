@@ -16,16 +16,15 @@ function randomLatLng() {
 
 export default function Page() {
   const router                                         = useRouter()
-  const { self, setAlias, emitCursorMove, emitStatus } = useSocket()
+  const { emitCursorMove, emitStatus } = useSocket()
   const { cursors }                                    = usePresence()
   const { countryNames, startGame, startPractice, cameraOrientationRef } = useGame()
 
   useEffect(() => { emitStatus('home') }, [emitStatus])
 
-  // Stable initial position: persisted camera orientation → self cursor → random
+  // Stable initial position: persisted camera orientation → random
   const initialPosition = useMemo(() => {
     if (cameraOrientationRef.current) return cameraOrientationRef.current
-    if (self?.lat != null && self?.lng != null) return { lat: self.lat, lng: self.lng }
     return randomLatLng()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -55,8 +54,6 @@ export default function Page() {
       onExplore={handleExplore}
       loading={countryNames.length === 0}
       countryCount={countryNames.length}
-      alias={self?.alias ?? null}
-      onAliasSubmit={setAlias}
       cursors={cursors}
       initialPosition={initialPosition}
       onCursorMove={emitCursorMove}
