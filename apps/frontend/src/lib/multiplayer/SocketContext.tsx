@@ -9,10 +9,21 @@ import {
   useCallback,
   type ReactNode,
 } from 'react'
-import { io, type Socket } from 'socket.io-client'
 import type { Visitor } from './types'
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:3002'
+const WS_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? 'ws://localhost:3002/ws'
+
+type ServerMessage =
+  | { type: 'init'; self: Visitor; visitors: Visitor[] }
+  | { type: 'visitor_joined'; visitor: Visitor }
+  | { type: 'visitor_updated'; id: string; alias?: string | null; status?: 'home' | 'playing' }
+  | { type: 'cursor_moved'; id: string; lat: number; lng: number }
+  | { type: 'visitor_left'; id: string }
+
+type ClientMessage =
+  | { type: 'set_alias'; alias: string }
+  | { type: 'set_status'; status: 'home' | 'playing' }
+  | { type: 'cursor_move'; lat: number; lng: number }
 
 interface SocketContextValue {
   self: Visitor | null
@@ -33,67 +44,111 @@ const SocketContext = createContext<SocketContextValue>({
 })
 
 export function SocketProvider({ children }: { children: ReactNode }) {
-  const socketRef         = useRef<Socket | null>(null)
+  const wsRef             = useRef<WebSocket | null>(null)
   const lastEmitRef       = useRef(0)
   const pendingStatusRef  = useRef<'home' | 'playing' | null>(null)
-  const [self, setSelf]         = useState<Visitor | null>(null)
-  const [visitors, setVisitors] = useState<Visitor[]>([])
+  const reconnectDelay    = useRef(500)
+  const reconnectTimer    = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const unmounted         = useRef(false)
+
+  const [self, setSelf]           = useState<Visitor | null>(null)
+  const [visitors, setVisitors]   = useState<Visitor[]>([])
   const [connected, setConnected] = useState(false)
 
   useEffect(() => {
-    const socket = io(SOCKET_URL, { transports: ['websocket'] })
-    socketRef.current = socket
+    unmounted.current = false
 
-    socket.on('connect', () => {
-      setConnected(true)
-      if (pendingStatusRef.current) socket.emit('set_status', pendingStatusRef.current)
-    })
-    socket.on('disconnect', () => setConnected(false))
+    function connect() {
+      const ws = new WebSocket(WS_URL)
+      wsRef.current = ws
 
-    socket.on('init', ({ self: s, visitors: vs }: { self: Visitor; visitors: Visitor[] }) => {
-      setSelf(s)
-      setVisitors(vs)
-    })
+      ws.onopen = () => {
+        setConnected(true)
+        reconnectDelay.current = 500
+        if (pendingStatusRef.current) {
+          ws.send(JSON.stringify({ type: 'set_status', status: pendingStatusRef.current } satisfies ClientMessage))
+        }
+      }
 
-    socket.on('visitor_joined', (v: Visitor) => {
-      setVisitors(prev => [...prev.filter(x => x.id !== v.id), v])
-    })
+      ws.onclose = () => {
+        setConnected(false)
+        // Guard against a stale onclose firing after a new connection has already
+        // been established (e.g. React Strict Mode double-invoke).
+        if (wsRef.current !== ws) return
+        wsRef.current = null
+        if (!unmounted.current) {
+          reconnectTimer.current = setTimeout(connect, reconnectDelay.current)
+          reconnectDelay.current = Math.min(reconnectDelay.current * 2, 30_000)
+        }
+      }
 
-    socket.on('visitor_updated', (patch: { id: string; alias?: string; status?: 'home' | 'playing' }) => {
-      setSelf(prev => prev?.id === patch.id ? { ...prev, ...patch } : prev)
-      setVisitors(prev => prev.map(v => v.id === patch.id ? { ...v, ...patch } : v))
-    })
+      ws.onerror = () => {} // onclose always follows; reconnect logic lives there
 
-    socket.on('cursor_moved', ({ id, lat, lng }: { id: string; lat: number; lng: number }) => {
-      setVisitors(prev => prev.map(v => v.id === id ? { ...v, lat, lng } : v))
-    })
+      ws.onmessage = (e: MessageEvent<string>) => {
+        let msg: ServerMessage
+        try {
+          msg = JSON.parse(e.data) as ServerMessage
+        } catch {
+          return
+        }
+        switch (msg.type) {
+          case 'init':
+            setSelf(msg.self)
+            setVisitors(msg.visitors ?? [])
+            break
+          case 'visitor_joined':
+            setVisitors(prev => [...prev.filter(x => x.id !== msg.visitor.id), msg.visitor])
+            break
+          case 'visitor_updated': {
+            const { type: _, id, ...patch } = msg
+            setSelf(prev => prev?.id === id ? { ...prev, ...patch } : prev)
+            setVisitors(prev => prev.map(v => v.id === id ? { ...v, ...patch } : v))
+            break
+          }
+          case 'cursor_moved':
+            setVisitors(prev => prev.map(v =>
+              v.id === msg.id ? { ...v, lat: msg.lat, lng: msg.lng } : v
+            ))
+            break
+          case 'visitor_left':
+            setVisitors(prev => prev.filter(v => v.id !== msg.id))
+            break
+        }
+      }
+    }
 
-    socket.on('visitor_left', (id: string) => {
-      setVisitors(prev => prev.filter(v => v.id !== id))
-    })
+    connect()
 
     return () => {
-      socket.disconnect()
-      socketRef.current = null
+      unmounted.current = true
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
+      wsRef.current?.close()
+      wsRef.current = null
+    }
+  }, [])
+
+  const send = useCallback((msg: ClientMessage) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(msg))
     }
   }, [])
 
   const setAlias = useCallback((alias: string) => {
-    socketRef.current?.emit('set_alias', alias)
-  }, [])
+    send({ type: 'set_alias', alias })
+  }, [send])
 
   const emitCursorMove = useCallback((lat: number, lng: number) => {
     const now = Date.now()
     if (now - lastEmitRef.current < 50) return
     lastEmitRef.current = now
-    socketRef.current?.emit('cursor_move', { lat, lng })
+    send({ type: 'cursor_move', lat, lng })
     setSelf(prev => prev ? { ...prev, lat, lng } : prev)
-  }, [])
+  }, [send])
 
   const emitStatus = useCallback((status: 'home' | 'playing') => {
     pendingStatusRef.current = status
-    socketRef.current?.emit('set_status', status)
-  }, [])
+    send({ type: 'set_status', status })
+  }, [send])
 
   return (
     <SocketContext.Provider value={{ self, visitors, connected, setAlias, emitCursorMove, emitStatus }}>
