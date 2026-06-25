@@ -139,7 +139,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   const emitCursorMove = useCallback((lat: number, lng: number) => {
     const now = Date.now()
-    if (now - lastEmitRef.current < 50) return
+    if (now - lastEmitRef.current < 100) return
     lastEmitRef.current = now
     send({ type: 'cursor_move', lat, lng })
     setSelf(prev => prev ? { ...prev, lat, lng } : prev)

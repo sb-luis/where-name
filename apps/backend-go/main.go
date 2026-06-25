@@ -12,8 +12,15 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/coder/websocket"
+)
+
+const (
+	minDelta    = 0.01         // degrees; skip broadcast if movement is smaller
+	idleTimeout = 5 * time.Minute
+	pingTimeout = 10 * time.Second
 )
 
 var palette = [8]string{
@@ -169,6 +176,27 @@ func msgVisitorLeft(id string) []byte {
 
 // --- per-client goroutines ---
 
+// keepAlive pings the client every idleTimeout. If the client doesn't respond
+// within pingTimeout, the connection is closed and readPump exits naturally.
+func (c *client) keepAlive(ctx context.Context) {
+	t := time.NewTicker(idleTimeout)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			pCtx, cancel := context.WithTimeout(ctx, pingTimeout)
+			err := c.conn.Ping(pCtx)
+			cancel()
+			if err != nil {
+				c.conn.Close(websocket.StatusPolicyViolation, "idle timeout")
+				return
+			}
+		}
+	}
+}
+
 func (c *client) writePump() {
 	for msg := range c.send {
 		if err := c.conn.Write(context.Background(), websocket.MessageText, msg); err != nil {
@@ -230,8 +258,18 @@ func (c *client) readPump(ctx context.Context) {
 			if lat < -90 || lat > 90 || lng < -180 || lng > 180 {
 				continue
 			}
-			g.updateVisitor(c, func(v *Visitor) { v.Lat = &lat; v.Lng = &lng })
-			g.broadcastExcept(msgCursorMoved(c.id, lat, lng), c.id)
+			var moved bool
+			g.updateVisitor(c, func(v *Visitor) {
+				if v.Lat == nil || v.Lng == nil ||
+					math.Abs(lat-*v.Lat) >= minDelta || math.Abs(lng-*v.Lng) >= minDelta {
+					v.Lat = &lat
+					v.Lng = &lng
+					moved = true
+				}
+			})
+			if moved {
+				g.broadcastExcept(msgCursorMoved(c.id, lat, lng), c.id)
+			}
 		}
 	}
 }
@@ -269,6 +307,7 @@ func serveWS(w http.ResponseWriter, r *http.Request) {
 	g.broadcastExcept(msgVisitorJoined(*visitor), id)
 
 	go c.writePump()
+	go c.keepAlive(r.Context())
 	c.readPump(r.Context())
 }
 
