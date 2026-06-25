@@ -4,6 +4,7 @@ export interface Visitor {
   color: string
   lat: number | null
   lng: number | null
+  status: 'home' | 'playing'
 }
 
 export interface CursorData {
@@ -12,4 +13,5 @@ export interface CursorData {
   color: string
   lat: number
   lng: number
+  status: 'home' | 'playing'
 }

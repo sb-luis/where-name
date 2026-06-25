@@ -95,7 +95,7 @@ export function WelcomePage({
             filter: 'drop-shadow(0 16px 40px rgba(66,124,223,0.18)) drop-shadow(0 4px 12px rgba(0,0,0,0.08))',
           }}
         >
-          <PresenceGlobe cursors={cursors} onCursorMove={onCursorMove} />
+          <PresenceGlobe cursors={cursors} currentStatus="home" onCursorMove={onCursorMove} />
         </div>
       </div>
 

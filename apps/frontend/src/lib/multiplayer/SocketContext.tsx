@@ -20,6 +20,7 @@ interface SocketContextValue {
   connected: boolean
   setAlias: (alias: string) => void
   emitCursorMove: (lat: number, lng: number) => void
+  emitStatus: (status: 'home' | 'playing') => void
 }
 
 const SocketContext = createContext<SocketContextValue>({
@@ -28,6 +29,7 @@ const SocketContext = createContext<SocketContextValue>({
   connected: false,
   setAlias: () => {},
   emitCursorMove: () => {},
+  emitStatus: () => {},
 })
 
 export function SocketProvider({ children }: { children: ReactNode }) {
@@ -53,9 +55,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setVisitors(prev => [...prev.filter(x => x.id !== v.id), v])
     })
 
-    socket.on('visitor_updated', ({ id, alias }: { id: string; alias: string }) => {
-      setSelf(prev => prev?.id === id ? { ...prev, alias } : prev)
-      setVisitors(prev => prev.map(v => v.id === id ? { ...v, alias } : v))
+    socket.on('visitor_updated', (patch: { id: string; alias?: string; status?: 'home' | 'playing' }) => {
+      setSelf(prev => prev?.id === patch.id ? { ...prev, ...patch } : prev)
+      setVisitors(prev => prev.map(v => v.id === patch.id ? { ...v, ...patch } : v))
     })
 
     socket.on('cursor_moved', ({ id, lat, lng }: { id: string; lat: number; lng: number }) => {
@@ -83,8 +85,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socketRef.current?.emit('cursor_move', { lat, lng })
   }, [])
 
+  const emitStatus = useCallback((status: 'home' | 'playing') => {
+    socketRef.current?.emit('set_status', status)
+  }, [])
+
   return (
-    <SocketContext.Provider value={{ self, visitors, connected, setAlias, emitCursorMove }}>
+    <SocketContext.Provider value={{ self, visitors, connected, setAlias, emitCursorMove, emitStatus }}>
       {children}
     </SocketContext.Provider>
   )

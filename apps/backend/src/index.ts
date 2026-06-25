@@ -12,6 +12,7 @@ interface Visitor {
   color: string
   lat: number | null
   lng: number | null
+  status: 'home' | 'playing'
 }
 
 const httpServer = createServer()
@@ -32,6 +33,7 @@ io.on('connection', (socket) => {
     color: COLORS[colorIndex % COLORS.length],
     lat: null,
     lng: null,
+    status: 'home',
   }
   colorIndex++
   visitors.set(socket.id, visitor)
@@ -43,6 +45,12 @@ io.on('connection', (socket) => {
     if (typeof alias !== 'string') return
     visitor.alias = alias.trim().slice(0, 20)
     io.emit('visitor_updated', { id: socket.id, alias: visitor.alias })
+  })
+
+  socket.on('set_status', (s: unknown) => {
+    if (s !== 'home' && s !== 'playing') return
+    visitor.status = s
+    io.emit('visitor_updated', { id: socket.id, status: visitor.status })
   })
 
   socket.on('cursor_move', (data: unknown) => {

@@ -2,9 +2,10 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import NumberFlow from '@number-flow/react'
-import { Globe } from '@/components/globe/Globe'
-import type { GlobeHandle } from '@/components/globe/Globe'
+import { MultiplayerGlobe } from '@/components/multiplayer/MultiplayerGlobe'
+import type { MultiplayerGlobeHandle } from '@/components/multiplayer/MultiplayerGlobe'
 import type { RoundResult } from '@/lib/game/types'
+import type { CursorData } from '@/lib/multiplayer/types'
 
 const GAME_DURATION_S  = 60
 const FEEDBACK_MS      = 1200 
@@ -16,11 +17,13 @@ interface Feedback {
 }
 
 interface Props {
-  targets: string[]
-  onEnd: (results: RoundResult[]) => void
+  targets:       string[]
+  cursors?:      CursorData[]
+  onCursorMove?: (lat: number, lng: number) => void
+  onEnd:         (results: RoundResult[]) => void
 }
 
-export function GameScreen({ targets, onEnd }: Props) {
+export function GameScreen({ targets, cursors = [], onCursorMove, onEnd }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [secondsLeft, setSecondsLeft]   = useState(GAME_DURATION_S)
   const [feedback, setFeedback]         = useState<Feedback | null>(null)
@@ -33,7 +36,7 @@ export function GameScreen({ targets, onEnd }: Props) {
   const endedRef        = useRef(false)
   const gameEndRef      = useRef(Date.now() + GAME_DURATION_S * 1000)
   const pausedAtRef     = useRef<number | null>(null)
-  const globeRef        = useRef<GlobeHandle>(null)
+  const globeRef        = useRef<MultiplayerGlobeHandle>(null)
   const onEndRef        = useRef(onEnd)
   onEndRef.current      = onEnd
 
@@ -118,7 +121,15 @@ export function GameScreen({ targets, onEnd }: Props) {
 
   return (
     <div className="relative w-screen h-dvh">
-      <Globe ref={globeRef} onSelect={handleSelect} showLabel={false} interactive={isLive} />
+      <MultiplayerGlobe
+        ref={globeRef}
+        onSelect={handleSelect}
+        onCursorMove={onCursorMove}
+        cursors={cursors}
+        currentStatus="playing"
+        showLabel={false}
+        interactive={isLive}
+      />
 
       {/* Single full-width top card containing all HUD elements */}
       <div className="pointer-events-none absolute top-5 inset-x-0 px-5">

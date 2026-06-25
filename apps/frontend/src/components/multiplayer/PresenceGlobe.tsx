@@ -27,6 +27,7 @@ interface CursorState {
   targetVec:  THREE.Vector3
   color:      string
   alias:      string
+  status:     'home' | 'playing'
 }
 
 // ─── Cursor visuals ───────────────────────────────────────────────────────────
@@ -66,12 +67,13 @@ function CursorLabel({ alias, color }: { alias: string; color: string }) {
 // ─── R3F scene (geo loading + cursor animation + pointer tracking) ────────────
 
 interface SceneProps {
-  cursorDataRef: React.RefObject<Map<string, CursorState>>
-  cursorRefsMap: React.RefObject<Map<string, HTMLDivElement>>
-  onCursorMove?: (lat: number, lng: number) => void
+  cursorDataRef:  React.RefObject<Map<string, CursorState>>
+  cursorRefsMap:  React.RefObject<Map<string, HTMLDivElement>>
+  currentStatus:  'home' | 'playing'
+  onCursorMove?:  (lat: number, lng: number) => void
 }
 
-function PresenceScene({ cursorDataRef, cursorRefsMap, onCursorMove }: SceneProps) {
+function PresenceScene({ cursorDataRef, cursorRefsMap, currentStatus, onCursorMove }: SceneProps) {
   const { scene, camera, size } = useThree()
 
   const mats = useMemo(() => ({
@@ -167,13 +169,12 @@ function PresenceScene({ cursorDataRef, cursorRefsMap, onCursorMove }: SceneProp
       const el = cursorRefsMap.current.get(id)
       if (!el) continue
 
-      // Move container to computed screen position
       el.style.transform = `translate(${sx}px, ${sy}px)`
+      el.style.opacity   = state.status === currentStatus ? '1' : '0.35'
 
       const arrow = el.children[0] as HTMLElement
       const label = el.children[1] as HTMLElement
 
-      // Arrow and label stay visible and in their normal relative positions for both hemispheres
       arrow.style.opacity   = '1'
       label.style.transform = 'translate(16px, -2px)'
     }
@@ -200,10 +201,11 @@ function PresenceScene({ cursorDataRef, cursorRefsMap, onCursorMove }: SceneProp
 
 interface Props {
   cursors:       CursorData[]
+  currentStatus: 'home' | 'playing'
   onCursorMove?: (lat: number, lng: number) => void
 }
 
-export function PresenceGlobe({ cursors, onCursorMove }: Props) {
+export function PresenceGlobe({ cursors, currentStatus, onCursorMove }: Props) {
   const cursorDataRef = useRef<Map<string, CursorState>>(new Map())
   const cursorRefsMap = useRef<Map<string, HTMLDivElement>>(new Map())
   const [cursorIds, setCursorIds] = useState<string[]>([])
@@ -219,13 +221,15 @@ export function PresenceGlobe({ cursors, onCursorMove }: Props) {
 
       if (existing) {
         existing.targetVec.copy(target)
-        existing.alias = c.alias ?? ''
+        existing.alias  = c.alias ?? ''
+        existing.status = c.status
       } else {
         cursorDataRef.current.set(c.id, {
           currentVec: target.clone(),
           targetVec:  target.clone(),
           color:      c.color,
           alias:      c.alias ?? '',
+          status:     c.status,
         })
       }
     }
@@ -247,6 +251,7 @@ export function PresenceGlobe({ cursors, onCursorMove }: Props) {
         <PresenceScene
           cursorDataRef={cursorDataRef}
           cursorRefsMap={cursorRefsMap}
+          currentStatus={currentStatus}
           onCursorMove={onCursorMove}
         />
       </Canvas>

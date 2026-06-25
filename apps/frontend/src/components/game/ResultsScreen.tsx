@@ -6,10 +6,10 @@ import type { RoundResult } from '@/lib/game/types'
 
 interface Props {
   results: RoundResult[]
-  onPlayAgain: () => void
+  onContinue: () => void
 }
 
-export function ResultsScreen({ results, onPlayAgain }: Props) {
+export function ResultsScreen({ results, onContinue }: Props) {
   const correct = results.filter(r => r.outcome === 'correct').length
   const skipped = results.filter(r => r.outcome === 'skipped').length
   const wrong   = results.filter(r => r.outcome === 'wrong').length
@@ -87,10 +87,10 @@ export function ResultsScreen({ results, onPlayAgain }: Props) {
             {copied ? 'Copied!' : 'Share'}
           </button>
           <button
-            onClick={onPlayAgain}
+            onClick={onContinue}
             className="flex-1 py-2.5 rounded-full bg-gray-900 text-white text-sm font-semibold hover:bg-gray-700 active:scale-95 transition-all duration-150"
           >
-            Play Again
+            Continue
           </button>
         </div>
 

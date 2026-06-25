@@ -9,7 +9,7 @@ export function usePresence() {
     () =>
       visitors
         .filter(v => v.lat !== null && v.lng !== null)
-        .map(v => ({ id: v.id, alias: v.alias, color: v.color, lat: v.lat!, lng: v.lng! })),
+        .map(v => ({ id: v.id, alias: v.alias, color: v.color, lat: v.lat!, lng: v.lng!, status: v.status })),
     [visitors],
   )
 
