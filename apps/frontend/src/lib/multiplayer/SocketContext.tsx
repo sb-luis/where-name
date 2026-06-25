@@ -33,8 +33,9 @@ const SocketContext = createContext<SocketContextValue>({
 })
 
 export function SocketProvider({ children }: { children: ReactNode }) {
-  const socketRef      = useRef<Socket | null>(null)
-  const lastEmitRef    = useRef(0)
+  const socketRef         = useRef<Socket | null>(null)
+  const lastEmitRef       = useRef(0)
+  const pendingStatusRef  = useRef<'home' | 'playing' | null>(null)
   const [self, setSelf]         = useState<Visitor | null>(null)
   const [visitors, setVisitors] = useState<Visitor[]>([])
   const [connected, setConnected] = useState(false)
@@ -43,7 +44,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const socket = io(SOCKET_URL, { transports: ['websocket'] })
     socketRef.current = socket
 
-    socket.on('connect',    () => setConnected(true))
+    socket.on('connect', () => {
+      setConnected(true)
+      if (pendingStatusRef.current) socket.emit('set_status', pendingStatusRef.current)
+    })
     socket.on('disconnect', () => setConnected(false))
 
     socket.on('init', ({ self: s, visitors: vs }: { self: Visitor; visitors: Visitor[] }) => {
@@ -86,6 +90,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const emitStatus = useCallback((status: 'home' | 'playing') => {
+    pendingStatusRef.current = status
     socketRef.current?.emit('set_status', status)
   }, [])
 
