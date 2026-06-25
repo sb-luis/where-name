@@ -40,6 +40,10 @@ export default function Page() {
     router.push('/practice')
   }
 
+  const handleExplore = () => {
+    router.push('/explore')
+  }
+
   const handleCameraChange = (lat: number, lng: number) => {
     cameraOrientationRef.current = { lat, lng }
   }
@@ -48,6 +52,7 @@ export default function Page() {
     <WelcomePage
       onStart={handleStart}
       onPractice={handlePractice}
+      onExplore={handleExplore}
       loading={countryNames.length === 0}
       countryCount={countryNames.length}
       alias={self?.alias ?? null}

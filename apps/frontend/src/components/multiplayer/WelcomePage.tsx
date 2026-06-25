@@ -9,6 +9,7 @@ import type { CursorData } from '@/lib/multiplayer/types'
 interface Props {
   onStart:          () => void
   onPractice?:      () => void
+  onExplore?:       () => void
   loading?:         boolean
   countryCount?:    number
   alias:            string | null
@@ -27,6 +28,7 @@ function formatMs(ms: number): { value: number; unit: string } {
 export function WelcomePage({
   onStart,
   onPractice,
+  onExplore,
   loading = false,
   countryCount = 0,
   alias,
@@ -117,13 +119,25 @@ export function WelcomePage({
             >
               Start Game
             </button>
-            {onPractice && (
-              <button
-                onClick={onPractice}
-                className="w-full py-3 rounded-full border border-gray-200 text-gray-500 font-medium text-base hover:bg-gray-50 active:scale-95 transition-all duration-150"
-              >
-                Practice
-              </button>
+            {(onPractice || onExplore) && (
+              <div className="flex gap-2">
+                {onPractice && (
+                  <button
+                    onClick={onPractice}
+                    className="flex-1 py-3 rounded-full border border-gray-200 text-gray-500 font-medium text-base hover:bg-gray-50 active:scale-95 transition-all duration-150"
+                  >
+                    Practice
+                  </button>
+                )}
+                {onExplore && (
+                  <button
+                    onClick={onExplore}
+                    className="flex-1 py-3 rounded-full border border-gray-200 text-gray-500 font-medium text-base hover:bg-gray-50 active:scale-95 transition-all duration-150"
+                  >
+                    Explore
+                  </button>
+                )}
+              </div>
             )}
           </div>
         ) : (
