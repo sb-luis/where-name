@@ -11,7 +11,7 @@ import {
 } from 'react'
 import type { Visitor, UserStatus } from './types'
 
-const WS_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? 'ws://localhost:3002/ws'
+const WS_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? 'ws://localhost:4000/ws'
 
 type ServerMessage =
   | { type: 'init'; self: Visitor; visitors: Visitor[] }

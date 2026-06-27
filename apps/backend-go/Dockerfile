@@ -9,5 +9,5 @@ FROM alpine:3.21
 RUN apk add --no-cache ca-certificates
 WORKDIR /app
 COPY --from=builder /app/server .
-EXPOSE 3002
+EXPOSE 4000
 CMD ["./server"]

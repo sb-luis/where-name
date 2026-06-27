@@ -314,7 +314,7 @@ func serveWS(w http.ResponseWriter, r *http.Request) {
 func main() {
 	raw := os.Getenv("ALLOWED_ORIGINS")
 	if raw == "" {
-		raw = "http://localhost:3001"
+		raw = "http://localhost:3000"
 	}
 	for _, o := range strings.Split(raw, ",") {
 		if o = strings.TrimSpace(o); o != "" {
@@ -324,7 +324,7 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "3002"
+		port = "4000"
 	}
 
 	http.HandleFunc("/ws", serveWS)
