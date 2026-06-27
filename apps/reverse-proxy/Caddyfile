@@ -1,0 +1,28 @@
+{ # global options
+    admin off # theres no need for the admin api in railway's environment
+    persist_config off # storage isn't persistent anyway
+    auto_https off # railway handles https for us, this would cause issues if left enabled
+    log { # runtime logs
+        format console # set runtime log format to console mode 
+    }
+    servers { # server options
+        trusted_proxies static private_ranges # trust railway's proxy
+    }
+}
+
+:{$PORT} { # site block, listens on the $PORT environment variable, automatically assigned by railway
+    log { # access logs
+        format console # set access log format to console mode
+    }
+
+    # Handle API requests
+    reverse_proxy /api/* {$BACKEND_ENDPOINT}
+
+    # Handle geo data API requests — handle_path strips the /geo prefix before forwarding
+    handle_path /geo/* {
+        reverse_proxy {$BACKEND_GEO_ENDPOINT}
+    }
+    
+    # Handle all other requests to frontend 
+    reverse_proxy /* {$FRONTEND_ENDPOINT}
+}
