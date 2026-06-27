@@ -31,13 +31,13 @@ metadata:
       - OGC
     keywords_type: theme
     terms_of_service: https://creativecommons.org/licenses/by/4.0/
-    url: https://luis.earth
+    url: https://whereinworld.up.railway.app
   license:
     name: CC-BY 4.0
     url: https://creativecommons.org/licenses/by/4.0/
   provider:
-    name: luis.earth
-    url: https://luis.earth
+    name: whereinworld.up.railway.app
+    url: https://whereinworld.up.railway.app
   contact:
     name: Sanchez Barranquero, Luis
     email: luis.sb.dev@gmail.com
