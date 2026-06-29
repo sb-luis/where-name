@@ -165,70 +165,68 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
         interactive={isLive}
       />
 
-      {/* HUD card */}
-      <div className="pointer-events-none absolute top-5 inset-x-0 px-5">
-        <div className="pointer-events-auto w-full rounded-2xl bg-white/90 backdrop-blur-sm shadow px-5 py-3 flex flex-col md:flex-row md:items-center gap-3">
+      {/* HUD */}
+      <div className="pointer-events-none absolute top-5 inset-x-0 px-5 flex flex-col gap-2">
 
-          {/* Mobile: one row (buttons left, timer right). Desktop: contents — children join outer flex directly */}
-          <div className="flex items-center justify-between md:contents">
-            <div className="flex items-center gap-2 md:order-2">
-              <button
-                onClick={handleQuit}
-                className="rounded-full px-4 py-1.5 text-sm font-semibold
-                  transition-all duration-300 select-none
-                  bg-black/6 text-gray-600 cursor-pointer hover:bg-black/10 active:scale-95"
-              >
-                {practice ? 'Stop' : 'Quit'}
-              </button>
-              <button
-                onClick={handleSkip}
-                disabled={!isLive}
-                className={`rounded-full px-4 py-1.5 text-sm font-semibold
-                  transition-all duration-300 select-none
-                  ${isLive
-                    ? 'bg-black/6 text-gray-600 cursor-pointer hover:bg-black/10 active:scale-95'
-                    : 'bg-black/4 text-gray-300 cursor-default'
-                  }`}
-              >
-                Skip
-              </button>
-            </div>
-            <div className="flex items-center gap-2.5 md:order-3">
-              <span className={`text-sm font-semibold tabular-nums transition-colors duration-300 ${
-                !isLive
-                  ? 'text-gray-300'
-                  : practice
-                    ? 'text-gray-500'
-                    : displaySeconds <= 10
-                      ? 'text-rose-400'
-                      : 'text-gray-500'
-              }`}>
-                {practice && displaySeconds >= 60
-                  ? <><NumberFlow value={Math.floor(displaySeconds / 60)} />m <NumberFlow value={displaySeconds % 60} />s</>
-                  : <><NumberFlow value={displaySeconds} />s</>
-                }
-              </span>
-              <button
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 active:scale-95 transition-all duration-150 text-base"
-                onClick={() => globeRef.current?.reset()}
-                title="Reset view"
-              >
-                🌍
-              </button>
-            </div>
+        {/* Controls card */}
+        <div className="pointer-events-auto w-full rounded-2xl bg-white/90 backdrop-blur-sm shadow px-5 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleQuit}
+              className="rounded-full px-4 py-1.5 text-sm font-semibold
+                transition-all duration-300 select-none
+                bg-black/6 text-gray-600 cursor-pointer hover:bg-black/10 active:scale-95"
+            >
+              {practice ? 'stop' : 'quit'}
+            </button>
+            <button
+              onClick={handleSkip}
+              disabled={!isLive}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold
+                transition-all duration-300 select-none
+                ${isLive
+                  ? 'bg-black/6 text-gray-600 cursor-pointer hover:bg-black/10 active:scale-95'
+                  : 'bg-black/4 text-gray-300 cursor-default'
+                }`}
+            >
+              skip
+            </button>
           </div>
-
-          {/* Country prompt — centered on mobile, left-aligned on desktop */}
-          <div key={`${leftLabel}-${leftCountry}`} className="anim-fade-up text-center md:text-left md:flex-1 md:min-w-0 md:order-1 flex flex-col gap-0.5">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 leading-none">
-              {leftLabel}
-            </p>
-            <p className={`text-xl font-bold leading-tight transition-colors duration-300 ${leftCountryClr}`}>
-              {leftCountry}
-            </p>
+          <div className="flex items-center gap-2.5">
+            <span className={`text-sm font-semibold tabular-nums transition-colors duration-300 ${
+              !isLive
+                ? 'text-gray-300'
+                : practice
+                  ? 'text-gray-500'
+                  : displaySeconds <= 10
+                    ? 'text-rose-400'
+                    : 'text-gray-500'
+            }`}>
+              {practice && displaySeconds >= 60
+                ? <><NumberFlow value={Math.floor(displaySeconds / 60)} />m <NumberFlow value={displaySeconds % 60} />s</>
+                : <><NumberFlow value={displaySeconds} />s</>
+              }
+            </span>
+            <button
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 active:scale-95 transition-all duration-150 text-xl"
+              onClick={() => globeRef.current?.reset()}
+              title="Reset view"
+            >
+              🌍
+            </button>
           </div>
-
         </div>
+
+        {/* Country prompt card */}
+        <div key={`${leftLabel}-${leftCountry}`} className="pointer-events-auto anim-fade-up w-full rounded-2xl bg-white/90 backdrop-blur-sm shadow px-5 py-3 flex flex-col gap-0.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 leading-none">
+            {leftLabel}
+          </p>
+          <p className={`text-xl font-bold leading-tight transition-colors duration-300 ${leftCountryClr}`}>
+            {leftCountry}
+          </p>
+        </div>
+
       </div>
     </div>
   )
