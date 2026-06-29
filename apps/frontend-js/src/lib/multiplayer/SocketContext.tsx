@@ -62,6 +62,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   const wsRef             = useRef<WebSocket | null>(null)
   const lastEmitRef       = useRef(0)
+  const visitorCountRef   = useRef(0)
   const reconnectDelay    = useRef(500)
   const reconnectTimer    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const unmounted         = useRef(false)
@@ -214,7 +215,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     send({ type: 'set_alias', alias })
   }, [send])
 
+  useEffect(() => { visitorCountRef.current = visitors.length }, [visitors])
+
   const emitCursorMove = useCallback((lat: number, lng: number) => {
+    // no need to stream cursor if no one is watching
+    if (visitorCountRef.current === 0) return
     const now = Date.now()
     if (now - lastEmitRef.current < 100) return
     lastEmitRef.current = now
