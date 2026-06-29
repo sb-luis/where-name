@@ -24,9 +24,10 @@ interface Props {
   onCursorMove?:    (lat: number, lng: number) => void
   onCameraChange?:  (lat: number, lng: number) => void
   onEnd:            (results: RoundResult[], elapsedSeconds?: number) => void
+  onQuit?:          () => void  // if provided, Quit goes here instead of onEnd (play mode: back to home)
 }
 
-export function GameScreen({ targets, practice = false, cursors = [], initialPosition, onCursorMove, onCameraChange, onEnd }: Props) {
+export function GameScreen({ targets, practice = false, cursors = [], initialPosition, onCursorMove, onCameraChange, onEnd, onQuit }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [displaySeconds, setDisplaySeconds] = useState(practice ? 0 : GAME_DURATION_S)
   const [feedback, setFeedback]         = useState<Feedback | null>(null)
@@ -103,10 +104,17 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
     advance()
   }, [targets, advance])
 
+  const onQuitRef = useRef(onQuit)
+  onQuitRef.current = onQuit
+
   const handleQuit = useCallback(() => {
     if (endedRef.current) return
     endedRef.current = true
-    onEndRef.current([...resultsRef.current], Math.floor((Date.now() - gameStartRef.current) / 1000))
+    if (onQuitRef.current) {
+      onQuitRef.current()
+    } else {
+      onEndRef.current([...resultsRef.current], Math.floor((Date.now() - gameStartRef.current) / 1000))
+    }
   }, [])
 
   const handleSelect = useCallback((name: string | null) => {
@@ -157,71 +165,67 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
         interactive={isLive}
       />
 
-      {/* Single full-width top card containing all HUD elements */}
+      {/* HUD card */}
       <div className="pointer-events-none absolute top-5 inset-x-0 px-5">
-        <div className="pointer-events-auto h-[72px] w-full rounded-2xl bg-white/90 backdrop-blur-sm shadow px-5 flex items-center gap-3">
+        <div className="pointer-events-auto w-full rounded-2xl bg-white/90 backdrop-blur-sm shadow px-5 py-3 flex flex-col md:flex-row md:items-center gap-3">
 
-          {/* Left: stacked label + country name */}
-          <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-            <div key={`${leftLabel}-${leftCountry}`} className="anim-fade-up flex flex-col gap-0.5">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 leading-none">
-                {leftLabel}
-              </p>
-              <p className={`text-xl font-bold truncate leading-tight transition-colors duration-300 ${leftCountryClr}`}>
-                {leftCountry}
-              </p>
-            </div>
-          </div>
-
-          {/* Centre: action buttons */}
-          <div className="flex-shrink-0 flex items-center gap-2">
-            {practice && (
+          {/* Mobile: one row (buttons left, timer right). Desktop: contents — children join outer flex directly */}
+          <div className="flex items-center justify-between md:contents">
+            <div className="flex items-center gap-2 md:order-2">
               <button
                 onClick={handleQuit}
-                className="flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold
+                className="rounded-full px-4 py-1.5 text-sm font-semibold
                   transition-all duration-300 select-none
                   bg-black/6 text-gray-600 cursor-pointer hover:bg-black/10 active:scale-95"
               >
                 Quit
               </button>
-            )}
-            <button
-              onClick={handleSkip}
-              disabled={!isLive}
-              className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold
-                transition-all duration-300 select-none
-                ${isLive
-                  ? 'bg-black/6 text-gray-600 cursor-pointer hover:bg-black/10 active:scale-95'
-                  : 'bg-black/4 text-gray-300 cursor-default'
-                }`}
-            >
-              Skip
-            </button>
+              <button
+                onClick={handleSkip}
+                disabled={!isLive}
+                className={`rounded-full px-4 py-1.5 text-sm font-semibold
+                  transition-all duration-300 select-none
+                  ${isLive
+                    ? 'bg-black/6 text-gray-600 cursor-pointer hover:bg-black/10 active:scale-95'
+                    : 'bg-black/4 text-gray-300 cursor-default'
+                  }`}
+              >
+                Skip
+              </button>
+            </div>
+            <div className="flex items-center gap-2.5 md:order-3">
+              <span className={`text-sm font-semibold tabular-nums transition-colors duration-300 ${
+                !isLive
+                  ? 'text-gray-300'
+                  : practice
+                    ? 'text-gray-500'
+                    : displaySeconds <= 10
+                      ? 'text-rose-400'
+                      : 'text-gray-500'
+              }`}>
+                {practice && displaySeconds >= 60
+                  ? <><NumberFlow value={Math.floor(displaySeconds / 60)} />m <NumberFlow value={displaySeconds % 60} />s</>
+                  : <><NumberFlow value={displaySeconds} />s</>
+                }
+              </span>
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 active:scale-95 transition-all duration-150 text-base"
+                onClick={() => globeRef.current?.reset()}
+                title="Reset view"
+              >
+                🌍
+              </button>
+            </div>
           </div>
 
-          {/* Right: timer/stopwatch + reset */}
-          <div className="flex-shrink-0 flex items-center gap-2.5">
-            <span className={`text-sm font-semibold tabular-nums transition-colors duration-300 ${
-              !isLive
-                ? 'text-gray-300'
-                : practice
-                  ? 'text-gray-500'
-                  : displaySeconds <= 10
-                    ? 'text-rose-400'
-                    : 'text-gray-500'
-            }`}>
-              {practice && displaySeconds >= 60
-                ? <><NumberFlow value={Math.floor(displaySeconds / 60)} />m <NumberFlow value={displaySeconds % 60} />s</>
-                : <><NumberFlow value={displaySeconds} />s</>
-              }
-            </span>
-            <button
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 active:scale-95 transition-all duration-150 text-base"
-              onClick={() => globeRef.current?.reset()}
-              title="Reset view"
-            >
-              🌍
-            </button>
+          {/* Country prompt — centered on mobile, left-aligned on desktop */}
+          <div key={`${leftLabel}-${leftCountry}`} className="anim-fade-up text-center md:text-left md:flex-1 md:min-w-0 md:order-1 flex flex-col gap-0.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 leading-none">
+              {leftLabel}
+            </p>
+            <p className={`text-xl font-bold leading-tight transition-colors duration-300 ${leftCountryClr}`}>
+              {leftCountry}
+            </p>
           </div>
 
         </div>

@@ -37,36 +37,36 @@ export default function ExplorePage() {
         onHover={setHoveredCountry}
       />
 
-      {/* Top bar — mirrors the game HUD card */}
+      {/* Top bar */}
       <div className="pointer-events-none absolute top-5 inset-x-0 px-5">
-        <div className="pointer-events-auto h-[72px] w-full rounded-2xl bg-white/90 backdrop-blur-sm shadow px-5 flex items-center gap-3">
+        <div className="pointer-events-auto w-full rounded-2xl bg-white/90 backdrop-blur-sm shadow px-5 py-3 flex flex-col md:flex-row md:items-center gap-3">
 
-          {/* Left: stacked label + country name */}
-          <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 leading-none">
-              Explore
-            </p>
-            <p className="text-xl font-bold truncate leading-tight text-gray-800">
-              {hoveredCountry ?? <span className="text-gray-300">—</span>}
-            </p>
-          </div>
-
-          {/* Right: back + reset */}
-          <div className="flex-shrink-0 flex items-center gap-2.5">
+          {/* Mobile: one row (back left, reset right). Desktop: contents — children join outer flex directly */}
+          <div className="flex items-center justify-between md:contents">
             <button
               onClick={() => router.push('/')}
               className="rounded-full px-4 py-1.5 text-sm font-semibold text-gray-600
-                bg-black/6 hover:bg-black/10 active:scale-95 transition-all duration-300 select-none"
+                bg-black/6 hover:bg-black/10 active:scale-95 transition-all duration-300 select-none md:order-2"
             >
               ← Back
             </button>
             <button
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 active:scale-95 transition-all duration-150 text-base"
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 active:scale-95 transition-all duration-150 text-base md:order-3"
               onClick={() => globeRef.current?.reset()}
               title="Reset view"
             >
               🌍
             </button>
+          </div>
+
+          {/* Country name — centered on mobile, left-aligned on desktop */}
+          <div className="text-center md:text-left md:flex-1 md:min-w-0 md:order-1 flex flex-col gap-0.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 leading-none">
+              Explore
+            </p>
+            <p className="text-xl font-bold leading-tight text-gray-800">
+              {hoveredCountry ?? <span className="text-gray-300">—</span>}
+            </p>
           </div>
 
         </div>

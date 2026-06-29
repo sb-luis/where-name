@@ -27,6 +27,14 @@ var (
 	secureCookies = os.Getenv("COOKIE_SECURE") == "true"
 )
 
+func randomPaletteColor() string {
+	b := make([]byte, 1)
+	if _, err := rand.Read(b); err != nil {
+		return palette[0]
+	}
+	return palette[int(b[0])%len(palette)]
+}
+
 type AuthHandler struct {
 	store *store.Store
 }
@@ -131,6 +139,10 @@ func clearSessionCookie(w http.ResponseWriter) {
 	})
 }
 
+func userJSON(u store.User) map[string]any {
+	return map[string]any{"id": u.ID, "username": u.Username, "color": u.CursorColor}
+}
+
 // --- handlers ---
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -157,7 +169,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.store.CreateUser(r.Context(), body.Username, hash)
+	user, err := h.store.CreateUser(r.Context(), body.Username, hash, randomPaletteColor())
 	if err != nil {
 		if isUniqueViolation(err) {
 			writeError(w, http.StatusConflict, "username already taken")
@@ -174,7 +186,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	setSessionCookie(w, sess.ID, sess.ExpiresAt)
-	writeJSON(w, http.StatusCreated, map[string]any{"id": user.ID, "username": user.Username})
+	writeJSON(w, http.StatusCreated, userJSON(user))
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -210,7 +222,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	setSessionCookie(w, sess.ID, sess.ExpiresAt)
-	writeJSON(w, http.StatusOK, map[string]any{"id": user.ID, "username": user.Username})
+	writeJSON(w, http.StatusOK, userJSON(user))
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -227,7 +239,7 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "not authenticated")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"id": user.ID, "username": user.Username})
+	writeJSON(w, http.StatusOK, userJSON(*user))
 }
 
 func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
@@ -241,6 +253,7 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		Username        *string `json:"username"`
 		CurrentPassword *string `json:"current_password"`
 		NewPassword     *string `json:"new_password"`
+		CursorColor     *string `json:"cursor_color"`
 	}
 	if err := readBody(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -293,5 +306,17 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"id": user.ID, "username": user.Username})
+	if body.CursorColor != nil {
+		if !allowedColors[*body.CursorColor] {
+			writeError(w, http.StatusUnprocessableEntity, "invalid cursor color")
+			return
+		}
+		if err := h.store.UpdateCursorColor(r.Context(), user.ID, *body.CursorColor); err != nil {
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		user.CursorColor = *body.CursorColor
+	}
+
+	writeJSON(w, http.StatusOK, userJSON(*user))
 }

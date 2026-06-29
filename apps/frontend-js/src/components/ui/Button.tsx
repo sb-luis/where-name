@@ -5,17 +5,17 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md' | 'lg'
 }
 
-const base = 'rounded-full font-semibold transition-all duration-150 active:scale-95 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed'
+const base = 'inline-flex items-center justify-center rounded-full font-semibold tracking-[0.01em] transition-all duration-150 active:scale-[0.96] disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed select-none'
 
 const variants = {
-  primary:   'bg-gray-900 text-white hover:bg-gray-700',
-  secondary: 'border border-gray-200 text-gray-500 font-medium hover:bg-gray-50',
+  primary:   'bg-gray-950 text-white hover:bg-gray-800',
+  secondary: 'bg-white border border-gray-300 text-gray-700 shadow-[0_1px_2px_rgba(0,0,0,0.07)] hover:bg-gray-50 hover:border-gray-400',
 }
 
 const sizes = {
-  sm: 'py-1.5 px-4 text-sm',
-  md: 'py-2.5 px-5',
-  lg: 'py-3 px-6 text-base',
+  sm: 'py-2 px-4 text-[12px]',
+  md: 'py-2.5 px-5 text-[13px]',
+  lg: 'py-3 px-6 text-sm',
 }
 
 export function Button({ variant = 'primary', size = 'md', className = '', children, ...props }: Props) {

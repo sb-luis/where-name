@@ -39,6 +39,7 @@ export default function PlayPage() {
       initialPosition={initialPosition}
       onCursorMove={emitCursorMove}
       onCameraChange={handleCameraChange}
+      onQuit={() => router.replace('/')}
       onEnd={(results) => {
         flushSync(() => setResults(results))
         router.push('/results')

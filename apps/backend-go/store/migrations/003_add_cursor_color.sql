@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN cursor_color TEXT NOT NULL DEFAULT '#3b82f6';

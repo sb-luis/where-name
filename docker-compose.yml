@@ -1,6 +1,6 @@
 services:
   reverse-proxy:
-    container_name: where-in-world-proxy
+    container_name: where-name-proxy
     build:
       context: ./apps/reverse-proxy
       dockerfile: Dockerfile
@@ -21,7 +21,7 @@ services:
       - BACKEND_GEO_ENDPOINT=http://backend-geo:4100
 
   frontend:
-    container_name: where-in-world-frontend
+    container_name: where-name-frontend
     build:
       context: ./apps/frontend-js
       dockerfile: Dockerfile
@@ -33,7 +33,7 @@ services:
       - backend
 
   backend:
-    container_name: where-in-world-backend
+    container_name: where-name-backend
     build:
       context: ./apps/backend-go
       dockerfile: Dockerfile
@@ -48,7 +48,7 @@ services:
       - postgres
 
   backend-geo:
-    container_name: where-in-world-backend-geo
+    container_name: where-name-backend-geo
     build:
       context: ./apps/backend-py
       dockerfile: Dockerfile
@@ -63,7 +63,7 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: where-in-world-postgres
+    container_name: where-name-postgres
     environment:
       POSTGRES_USER: wiw_user
       POSTGRES_PASSWORD: wiw_password

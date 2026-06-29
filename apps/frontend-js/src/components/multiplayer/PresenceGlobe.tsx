@@ -230,6 +230,7 @@ export function PresenceGlobe({ cursors, currentStatus, initialPosition, onCurso
       if (existing) {
         existing.targetVec.copy(target)
         existing.alias  = c.alias ?? ''
+        existing.color  = c.color
         existing.status = c.status
       } else {
         cursorDataRef.current.set(c.id, {

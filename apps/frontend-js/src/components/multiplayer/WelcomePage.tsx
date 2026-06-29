@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import NumberFlow from '@number-flow/react'
 import { PresenceGlobe } from './PresenceGlobe'
 import { Button } from '@/components/ui/Button'
+import { Header } from '@/components/ui/Header'
+import { Footer } from '@/components/ui/Footer'
 import { AuthButton } from '@/components/auth/AuthButton'
 import type { CursorData } from '@/lib/multiplayer/types'
 
@@ -66,68 +68,71 @@ export function WelcomePage({
   const loaded = !loading && countryCount > 0
 
   return (
-    <main className="w-screen h-dvh bg-[#f3f3f3] flex flex-col items-center justify-between py-12 px-6">
-      <AuthButton />
+    <div className="h-dvh flex flex-col bg-[#f3f3f3]">
+      <Header><AuthButton /></Header>
 
-      {/* ── Title ── */}
-      <div className="text-center space-y-2">
-        {loading ? (
-          <>
-            <p className="text-lg text-gray-600 font-medium">world is loading</p>
-            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-gray-900 tabular-nums whitespace-nowrap">
-              <NumberFlow value={fetchValue} format={{ maximumFractionDigits: 2 }} /><span className="ml-1">{fetchUnit}</span>
-            </h1>
-          </>
-        ) : (
-          <>
-            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-gray-900 tabular-nums whitespace-nowrap">
-              <NumberFlow value={animatedCount} /> countries ready
-            </h1>
-            <p className="text-base text-gray-400">
-              how many can you guess in 1 minute?
-            </p>
-          </>
-        )}
-      </div>
+      <main className="flex-1 min-h-0 flex flex-col items-center justify-center gap-5 px-6 py-4">
 
-      {/* ── Presence Globe ── */}
-      <div className="flex-1 w-full flex items-center justify-center">
+        {/* ── Title ── */}
+        <div className="text-center space-y-1">
+          {loading ? (
+            <>
+              <p className="text-sm text-gray-600 font-medium">world is loading</p>
+              <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-gray-900 tabular-nums">
+                <NumberFlow value={fetchValue} format={{ maximumFractionDigits: 2 }} /><span className="ml-1">{fetchUnit}</span>
+              </h1>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-gray-900 tabular-nums">
+                <NumberFlow value={animatedCount} /> countries ready
+              </h1>
+              <p className="text-sm text-gray-400">
+                how many can you guess in 1 minute?
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* ── Presence Globe ── */}
         <div
           className="aspect-square"
           style={{
-            width: 'min(75vw, 52vh)',
+            width: 'min(65vw, 42dvh)',
             filter: 'drop-shadow(0 16px 40px rgba(66,124,223,0.18)) drop-shadow(0 4px 12px rgba(0,0,0,0.08))',
           }}
         >
           <PresenceGlobe cursors={cursors} currentStatus="home" initialPosition={initialPosition} onCursorMove={onCursorMove} onCameraChange={onCameraChange} />
         </div>
-      </div>
 
-      {/* ── CTA ── */}
-      <div className={`w-full max-w-xs shrink-0 transition-all duration-500 ${
-        loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
-      }`}>
-        <div className="flex flex-col gap-2">
-          <Button size="lg" onClick={onStart} className="w-full">
-            play
-          </Button>
-          {(onPractice || onExplore) && (
-            <div className="flex gap-2">
-              {onPractice && (
-                <Button size="lg" variant="secondary" onClick={onPractice} className="flex-1">
-                  practice
-                </Button>
-              )}
-              {onExplore && (
-                <Button size="lg" variant="secondary" onClick={onExplore} className="flex-1">
-                  explore
-                </Button>
-              )}
-            </div>
-          )}
+        {/* ── CTA ── */}
+        <div className={`w-full max-w-xs transition-all duration-500 ${
+          loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+        }`}>
+          <div className="flex flex-col gap-2">
+            <Button size="lg" onClick={onStart} className="w-full">
+              play
+            </Button>
+            {(onPractice || onExplore) && (
+              <div className="flex gap-2">
+                {onPractice && (
+                  <Button size="lg" variant="secondary" onClick={onPractice} className="flex-1">
+                    practice
+                  </Button>
+                )}
+                {onExplore && (
+                  <Button size="lg" variant="secondary" onClick={onExplore} className="flex-1">
+                    explore
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-    </main>
+      </main>
+
+      <Footer />
+    </div>
   )
 }

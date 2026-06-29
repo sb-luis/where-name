@@ -26,10 +26,6 @@ const (
 	takeoverTimeout = 30 * time.Second
 )
 
-var palette = [8]string{
-	"#ef4444", "#f97316", "#eab308", "#22c55e",
-	"#3b82f6", "#a855f7", "#ec4899", "#14b8a6",
-}
 
 type Visitor struct {
 	ID            string   `json:"id"`
@@ -186,6 +182,14 @@ func msgVisitorUpdatedStatus(id, status string) []byte {
 	}{"visitor_updated", id, status})
 }
 
+func msgVisitorUpdatedColor(id, color string) []byte {
+	return enc(struct {
+		Type  string `json:"type"`
+		ID    string `json:"id"`
+		Color string `json:"color"`
+	}{"visitor_updated", id, color})
+}
+
 func msgCursorMoved(id string, lat, lng float64) []byte {
 	return enc(struct {
 		Type string  `json:"type"`
@@ -234,6 +238,7 @@ func (c *client) writePump() {
 type incomingMsg struct {
 	Type   string   `json:"type"`
 	Alias  string   `json:"alias"`
+	Color  string   `json:"color"`
 	Status string   `json:"status"`
 	Lat    *float64 `json:"lat"`
 	Lng    *float64 `json:"lng"`
@@ -259,15 +264,19 @@ func (c *client) readPump(ctx context.Context) {
 
 		switch msg.Type {
 		case "set_alias":
-			if c.visitor.Authenticated {
-				continue
-			}
 			alias := strings.TrimSpace(msg.Alias)
 			if rs := []rune(alias); len(rs) > 20 {
 				alias = string(rs[:20])
 			}
 			c.hub.updateVisitor(c, func(v *Visitor) { v.Alias = &alias })
 			c.hub.broadcast(msgVisitorUpdatedAlias(c.id, &alias))
+
+		case "set_color":
+			if !allowedColors[msg.Color] {
+				continue
+			}
+			c.hub.updateVisitor(c, func(v *Visitor) { v.Color = msg.Color })
+			c.hub.broadcast(msgVisitorUpdatedColor(c.id, msg.Color))
 
 		case "set_status":
 			if msg.Status != "home" && msg.Status != "playing" {
@@ -332,17 +341,21 @@ func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idx := h.hub.colorIdx.Add(1) - 1
 	id := newID()
 
 	var alias *string
 	var userID *int64
+	var color string
 	authenticated := false
 	if user, ok := middleware.UserFromCtx(r.Context()); ok {
 		alias = &user.Username
 		authenticated = true
 		uid := user.ID
 		userID = &uid
+		color = user.CursorColor
+	} else {
+		idx := h.hub.colorIdx.Add(1) - 1
+		color = palette[idx%uint64(len(palette))]
 	}
 
 	// Authenticated user already has an active connection: ask the new tab
@@ -389,7 +402,7 @@ func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	visitor := &Visitor{
 		ID:            id,
 		Alias:         alias,
-		Color:         palette[idx%8],
+		Color:         color,
 		Status:        "home",
 		Authenticated: authenticated,
 	}

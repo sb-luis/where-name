@@ -12,10 +12,12 @@ import {
 import { useAuth } from '@/lib/auth/AuthContext'
 import type { Visitor, UserStatus } from './types'
 
-// derive the WS URL from window.location 
-// works in every environment 
 function getWsUrl() {
   if (typeof window === 'undefined') return 'ws://localhost:4000/ws'
+  // NEXT_PUBLIC_WS_URL lets local dev bypass the Next.js dev server (which
+  // can't proxy WebSocket) and connect directly to the Go backend.
+  // In Docker, Caddy handles /ws so this var is left unset.
+  if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL
   const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
   return `${proto}://${window.location.host}/ws`
 }
@@ -23,7 +25,7 @@ function getWsUrl() {
 type ServerMessage =
   | { type: 'init'; self: Visitor; visitors: Visitor[] }
   | { type: 'visitor_joined'; visitor: Visitor }
-  | { type: 'visitor_updated'; id: string; alias?: string | null; status?: UserStatus }
+  | { type: 'visitor_updated'; id: string; alias?: string | null; status?: UserStatus; color?: string }
   | { type: 'cursor_moved'; id: string; lat: number; lng: number }
   | { type: 'visitor_left'; id: string }
   | { type: 'duplicate_session' }
@@ -31,6 +33,7 @@ type ServerMessage =
 
 type ClientMessage =
   | { type: 'set_alias'; alias: string }
+  | { type: 'set_color'; color: string }
   | { type: 'set_status'; status: UserStatus }
   | { type: 'cursor_move'; lat: number; lng: number }
   | { type: 'takeover' }
@@ -42,6 +45,7 @@ interface SocketContextValue {
   sessionInactive: boolean  // true = another tab is active; show the inactive banner
   continueHere: () => void  // claim this tab as the active session
   setAlias: (alias: string) => void
+  setColor: (color: string) => void
   emitCursorMove: (lat: number, lng: number) => void
   emitStatus: (status: UserStatus) => void
 }
@@ -53,6 +57,7 @@ const SocketContext = createContext<SocketContextValue>({
   sessionInactive: false,
   continueHere: () => {},
   setAlias: () => {},
+  setColor: () => {},
   emitCursorMove: () => {},
   emitStatus: () => {},
 })
@@ -215,6 +220,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     send({ type: 'set_alias', alias })
   }, [send])
 
+  const setColor = useCallback((color: string) => {
+    send({ type: 'set_color', color })
+  }, [send])
+
   useEffect(() => { visitorCountRef.current = visitors.length }, [visitors])
 
   const emitCursorMove = useCallback((lat: number, lng: number) => {
@@ -236,7 +245,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     <SocketContext.Provider value={{
       self, visitors, connected,
       sessionInactive, continueHere,
-      setAlias, emitCursorMove, emitStatus,
+      setAlias, setColor, emitCursorMove, emitStatus,
     }}>
       {children}
     </SocketContext.Provider>

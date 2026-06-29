@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 export interface AuthUser {
   id: number
   username: string
+  color: string
 }
 
 interface AuthContextValue {
@@ -13,6 +14,12 @@ interface AuthContextValue {
   login: (username: string, password: string) => Promise<void>
   register: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  updateProfile: (body: {
+    username?: string
+    current_password?: string
+    new_password?: string
+    cursor_color?: string
+  }) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -21,6 +28,7 @@ const AuthContext = createContext<AuthContextValue>({
   login: async () => {},
   register: async () => {},
   logout: async () => {},
+  updateProfile: async () => {},
 })
 
 // Parse JSON safely — returns null if the body is empty or not valid JSON.
@@ -70,8 +78,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
+  const updateProfile = useCallback(async (body: {
+    username?: string
+    current_password?: string
+    new_password?: string
+    cursor_color?: string
+  }) => {
+    const r = await fetch('/api/auth/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const data = await parseJson(r)
+    if (!r.ok) throw new Error(data?.error as string ?? 'Update failed')
+    setUser(data as unknown as AuthUser)
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   )
