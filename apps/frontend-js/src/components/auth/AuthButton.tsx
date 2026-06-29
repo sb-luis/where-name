@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/lib/auth/AuthContext'
-import { Button } from '@/components/ui/Button'
-import { LinkButton } from '@/components/ui/LinkButton'
 import { AuthModal } from './AuthModal'
+
+const pill = 'rounded-full px-4 py-1.5 text-sm font-semibold text-gray-600 bg-black/6 hover:bg-black/10 active:scale-95 transition-all duration-300 select-none'
 
 export function AuthButton() {
   const { user, loading } = useAuth()
@@ -15,13 +16,13 @@ export function AuthButton() {
   return (
     <>
       {user ? (
-        <LinkButton href="/profile" variant="secondary" size="sm">
+        <Link href="/profile" className={pill}>
           {user.username}
-        </LinkButton>
+        </Link>
       ) : (
-        <Button size="sm" onClick={() => setShowModal(true)}>
+        <button className={pill} onClick={() => setShowModal(true)}>
           log in
-        </Button>
+        </button>
       )}
       {showModal && <AuthModal onClose={() => setShowModal(false)} />}
     </>

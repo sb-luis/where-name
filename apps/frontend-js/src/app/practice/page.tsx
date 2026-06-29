@@ -64,6 +64,10 @@ export default function PracticePage() {
       onCursorMove={emitCursorMove}
       onCameraChange={handleCameraChange}
       onEnd={async (results, elapsedMs) => {
+        if (results.length === 0) {
+          router.push('/')
+          return
+        }
         const completed = results.length === targets.length
         if (user && elapsedMs != null) {
           await savePracticeGame(results, elapsedMs, completed)

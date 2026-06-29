@@ -166,10 +166,11 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
       />
 
       {/* HUD */}
-      <div className="pointer-events-none absolute top-5 inset-x-0 px-5 flex flex-col gap-2">
+      <div className="pointer-events-none absolute top-5 inset-x-0 px-4 md:px-6">
+        <div className="max-w-2xl mx-auto flex flex-col gap-2">
 
         {/* Controls card */}
-        <div className="pointer-events-auto w-full rounded-2xl bg-white/90 backdrop-blur-sm shadow px-5 py-3 flex items-center justify-between">
+        <div className="pointer-events-auto w-full rounded-2xl bg-white/90 backdrop-blur-sm shadow px-5 py-3 flex items-center">
           <div className="flex items-center gap-2">
             <button
               onClick={handleQuit}
@@ -192,6 +193,9 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
               skip
             </button>
           </div>
+          <p className="flex-1 text-center text-sm font-semibold text-gray-500 uppercase tracking-widest">
+            {practice ? 'Practice' : '1 minute'}
+          </p>
           <div className="flex items-center gap-2.5">
             <span className={`text-sm font-semibold tabular-nums transition-colors duration-300 ${
               !isLive
@@ -227,6 +231,7 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
           </p>
         </div>
 
+        </div>
       </div>
     </div>
   )

@@ -5,9 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Header } from '@/components/ui/Header'
-import { Footer } from '@/components/ui/Footer'
-import { AuthButton } from '@/components/auth/AuthButton'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 
 export const COLOR_PALETTE = [
@@ -41,11 +38,11 @@ interface SectionProps {
 
 function Section({ label, open, onToggle, children }: SectionProps) {
   return (
-    <div className="border-b border-gray-200">
+    <div className="rounded-2xl bg-white shadow-sm border border-gray-100 overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between py-5 cursor-pointer group"
+        className="w-full flex items-center justify-between px-5 py-4 cursor-pointer group"
       >
         <span className="text-[10px] font-semibold uppercase tracking-[0.13em] text-gray-400 group-hover:text-gray-500 transition-colors">
           {label}
@@ -55,7 +52,7 @@ function Section({ label, open, onToggle, children }: SectionProps) {
 
       <div className={`grid transition-all duration-300 ease-in-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
         <div className="overflow-hidden">
-          <div className="pb-5">
+          <div className="px-5 pb-5">
             {children}
           </div>
         </div>
@@ -145,133 +142,138 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="h-dvh flex flex-col bg-[#efefef]">
-      <Header><AuthButton /></Header>
+    <main className="h-dvh overflow-y-auto bg-[#f3f3f3] px-4 py-5 md:px-6">
+      <div className="max-w-2xl mx-auto space-y-4 pb-10">
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-6 sm:px-12 py-10">
-
-          <div className="border-t border-gray-200">
-
-            {/* Alias */}
-            <Section
-              label="alias"
-              open={openSection === 'alias'}
-              onToggle={() => toggle('alias')}
-            >
-              <form onSubmit={handleUsernameSubmit} className="space-y-2.5 max-w-xs">
-                <Input
-                  value={username}
-                  onChange={e => { setUsername(e.target.value); setUsernameMsg(null) }}
-                  maxLength={20}
-                />
-                {usernameMsg && (
-                  <p className={`text-[12px] font-medium ${usernameMsg.ok ? 'text-emerald-500' : 'text-red-400'}`}>
-                    {usernameMsg.text}
-                  </p>
-                )}
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={usernameBusy || !username.trim() || username.trim() === user.username}
-                >
-                  update alias
-                </Button>
-              </form>
-            </Section>
-
-            {/* Password */}
-            <Section
-              label="password"
-              open={openSection === 'password'}
-              onToggle={() => toggle('password')}
-            >
-              <form onSubmit={handlePasswordSubmit} className="space-y-2.5 max-w-xs">
-                <Input
-                  type="password"
-                  value={currentPw}
-                  onChange={e => { setCurrentPw(e.target.value); setPasswordMsg(null) }}
-                  placeholder="current"
-                  autoComplete="current-password"
-                />
-                <Input
-                  type="password"
-                  value={newPw}
-                  onChange={e => { setNewPw(e.target.value); setPasswordMsg(null) }}
-                  placeholder="new (8+ chars)"
-                  autoComplete="new-password"
-                />
-                {passwordMsg && (
-                  <p className={`text-[12px] font-medium ${passwordMsg.ok ? 'text-emerald-500' : 'text-red-400'}`}>
-                    {passwordMsg.text}
-                  </p>
-                )}
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={passwordBusy || !currentPw || newPw.length < 8}
-                >
-                  update password
-                </Button>
-              </form>
-            </Section>
-
-            {/* Cursor color */}
-            <Section
-              label="cursor"
-              open={openSection === 'cursor'}
-              onToggle={() => toggle('cursor')}
-            >
-              <div className="space-y-3">
-                <div className="grid grid-cols-9 gap-2 p-3">
-                  {COLOR_PALETTE.map(color => {
-                    const selected = (pendingColor ?? user.color) === color
-                    return (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => { setPendingColor(color); setColorMsg(null) }}
-                        disabled={colorBusy}
-                        className={`w-7 h-7 rounded-full transition-all duration-150 cursor-pointer disabled:cursor-not-allowed
-                          ${selected
-                            ? 'ring-2 ring-offset-2 ring-gray-900 scale-110'
-                            : 'hover:scale-110 active:scale-95'
-                          }`}
-                        style={{ backgroundColor: color }}
-                        aria-label={color}
-                        aria-pressed={selected}
-                      />
-                    )
-                  })}
-                </div>
-                {colorMsg && (
-                  <p className={`text-[12px] font-medium ${colorMsg.ok ? 'text-emerald-500' : 'text-red-400'}`}>
-                    {colorMsg.text}
-                  </p>
-                )}
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleColorSubmit}
-                  disabled={colorBusy || !pendingColor || pendingColor === user.color}
-                >
-                  update cursor
-                </Button>
-              </div>
-            </Section>
-
-            {/* Log out */}
-            <section className="py-5">
-              <Button variant="secondary" size="sm" onClick={logout}>
-                log out
-              </Button>
-            </section>
-
-          </div>
+        {/* Top card */}
+        <div className="rounded-2xl bg-white shadow-sm border border-gray-100 px-5 py-3 flex items-center justify-between">
+          <button
+            onClick={() => router.push('/')}
+            className="rounded-full px-4 py-1.5 text-sm font-semibold text-gray-600 bg-black/6 hover:bg-black/10 active:scale-95 transition-all duration-300 select-none"
+          >
+            where.name
+          </button>
+          <p className="flex-1 text-center text-sm font-semibold text-gray-500 uppercase tracking-widest">Profile</p>
+          <button
+            onClick={logout}
+            className="rounded-full px-4 py-1.5 text-sm font-semibold text-gray-600 bg-black/6 hover:bg-black/10 active:scale-95 transition-all duration-300 select-none"
+          >
+            log out
+          </button>
         </div>
-      </main>
 
-      <Footer />
-    </div>
+        <div className="space-y-3">
+
+          {/* Alias */}
+          <Section
+            label="alias"
+            open={openSection === 'alias'}
+            onToggle={() => toggle('alias')}
+          >
+            <form onSubmit={handleUsernameSubmit} className="space-y-2.5 max-w-xs">
+              <Input
+                value={username}
+                onChange={e => { setUsername(e.target.value); setUsernameMsg(null) }}
+                maxLength={20}
+              />
+              {usernameMsg && (
+                <p className={`text-[12px] font-medium ${usernameMsg.ok ? 'text-emerald-500' : 'text-red-400'}`}>
+                  {usernameMsg.text}
+                </p>
+              )}
+              <Button
+                type="submit"
+                size="sm"
+                disabled={usernameBusy || !username.trim() || username.trim() === user.username}
+              >
+                update alias
+              </Button>
+            </form>
+          </Section>
+
+          {/* Password */}
+          <Section
+            label="password"
+            open={openSection === 'password'}
+            onToggle={() => toggle('password')}
+          >
+            <form onSubmit={handlePasswordSubmit} className="space-y-2.5 max-w-xs">
+              <Input
+                type="password"
+                value={currentPw}
+                onChange={e => { setCurrentPw(e.target.value); setPasswordMsg(null) }}
+                placeholder="current"
+                autoComplete="current-password"
+              />
+              <Input
+                type="password"
+                value={newPw}
+                onChange={e => { setNewPw(e.target.value); setPasswordMsg(null) }}
+                placeholder="new (8+ chars)"
+                autoComplete="new-password"
+              />
+              {passwordMsg && (
+                <p className={`text-[12px] font-medium ${passwordMsg.ok ? 'text-emerald-500' : 'text-red-400'}`}>
+                  {passwordMsg.text}
+                </p>
+              )}
+              <Button
+                type="submit"
+                size="sm"
+                disabled={passwordBusy || !currentPw || newPw.length < 8}
+              >
+                update password
+              </Button>
+            </form>
+          </Section>
+
+          {/* Cursor color */}
+          <Section
+            label="cursor"
+            open={openSection === 'cursor'}
+            onToggle={() => toggle('cursor')}
+          >
+            <div className="space-y-3">
+              <div className="grid grid-cols-9 gap-2 p-3">
+                {COLOR_PALETTE.map(color => {
+                  const selected = (pendingColor ?? user.color) === color
+                  return (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => { setPendingColor(color); setColorMsg(null) }}
+                      disabled={colorBusy}
+                      className={`w-7 h-7 rounded-full transition-all duration-150 cursor-pointer disabled:cursor-not-allowed
+                        ${selected
+                          ? 'ring-2 ring-offset-2 ring-gray-900 scale-110'
+                          : 'hover:scale-110 active:scale-95'
+                        }`}
+                      style={{ backgroundColor: color }}
+                      aria-label={color}
+                      aria-pressed={selected}
+                    />
+                  )
+                })}
+              </div>
+              {colorMsg && (
+                <p className={`text-[12px] font-medium ${colorMsg.ok ? 'text-emerald-500' : 'text-red-400'}`}>
+                  {colorMsg.text}
+                </p>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleColorSubmit}
+                disabled={colorBusy || !pendingColor || pendingColor === user.color}
+              >
+                update cursor
+              </Button>
+            </div>
+          </Section>
+
+        </div>
+
+      </div>
+    </main>
   )
 }

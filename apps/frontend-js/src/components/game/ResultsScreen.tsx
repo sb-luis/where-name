@@ -61,7 +61,7 @@ export function ResultsScreen({ results, mode = 'timed', elapsedMs, geo, practic
             onClick={onReturn}
             className="rounded-full px-4 py-1.5 text-sm font-semibold text-gray-600 bg-black/6 hover:bg-black/10 active:scale-95 transition-all duration-300 select-none"
           >
-            back
+            where.name
           </button>
           <p className="flex-1 text-center text-sm font-semibold text-gray-500 uppercase tracking-widest">
             {mode === 'practice' ? 'Practice' : '1 minute'}

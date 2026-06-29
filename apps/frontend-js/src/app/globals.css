@@ -10,8 +10,10 @@ body {
 .globe-zoom-slider-wrap {
   position: absolute;
   bottom: 20px;
-  left: 20px;
-  right: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 42rem; /* matches max-w-2xl (672px) */
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -77,8 +79,7 @@ body {
 
 @media (max-width: 768px) {
   .globe-zoom-slider-wrap {
-    left: 12px;
-    right: 12px;
+    width: calc(100% - 24px);
     bottom: 12px;
     gap: 10px;
   }

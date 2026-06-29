@@ -1,11 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import NumberFlow from '@number-flow/react'
 import { PresenceGlobe } from './PresenceGlobe'
 import { Button } from '@/components/ui/Button'
-import { Header } from '@/components/ui/Header'
-import { Footer } from '@/components/ui/Footer'
 import { AuthButton } from '@/components/auth/AuthButton'
 import type { CursorData } from '@/lib/multiplayer/types'
 
@@ -68,10 +67,17 @@ export function WelcomePage({
   const loaded = !loading && countryCount > 0
 
   return (
-    <div className="h-dvh flex flex-col bg-[#f3f3f3]">
-      <Header><AuthButton /></Header>
+    <div className="h-dvh flex flex-col bg-[#f3f3f3] px-5 py-5 gap-4">
 
-      <main className="flex-1 min-h-0 flex flex-col items-center justify-between px-6 py-8">
+      {/* Top card */}
+      <div className="shrink-0 w-full max-w-2xl mx-auto rounded-2xl bg-white shadow-sm border border-gray-100 px-5 py-3 flex items-center justify-between">
+        <Link href="/" className="rounded-full px-4 py-1.5 text-sm font-semibold text-gray-600 bg-black/6 hover:bg-black/10 active:scale-95 transition-all duration-300 select-none">
+          where.name
+        </Link>
+        <AuthButton />
+      </div>
+
+      <main className="flex-1 min-h-0 flex flex-col items-center justify-between px-1 py-4">
 
         {/* ── Title ── */}
         <div className="text-center space-y-1">
@@ -129,7 +135,18 @@ export function WelcomePage({
 
       </main>
 
-      <Footer />
+      {/* Bottom card */}
+      <div className="shrink-0 w-full max-w-2xl mx-auto rounded-2xl bg-white shadow-sm border border-gray-100 px-5 py-3 flex items-center justify-end">
+        <a
+          href="https://github.com/sb-luis/where-name"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-full px-4 py-1.5 text-sm font-semibold text-gray-600 bg-black/6 hover:bg-black/10 active:scale-95 transition-all duration-300 select-none"
+        >
+          github
+        </a>
+      </div>
+
     </div>
   )
 }
