@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"wiw-backend/routes"
-	"wiw-backend/routes/handlers"
-	"wiw-backend/store"
+	"github.com/sb-luis/where-name/apps/backend-go/routes"
+	"github.com/sb-luis/where-name/apps/backend-go/routes/handlers"
+	"github.com/sb-luis/where-name/apps/backend-go/store"
 )
 
 func main() {

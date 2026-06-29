@@ -3,9 +3,9 @@ package routes
 import (
 	"net/http"
 
-	"wiw-backend/routes/handlers"
-	"wiw-backend/routes/middleware"
-	"wiw-backend/store"
+	"github.com/sb-luis/where-name/apps/backend-go/routes/handlers"
+	"github.com/sb-luis/where-name/apps/backend-go/routes/middleware"
+	"github.com/sb-luis/where-name/apps/backend-go/store"
 )
 
 func Register(mux *http.ServeMux, s *store.Store, hub *handlers.Hub, allowedOrigins []string) {

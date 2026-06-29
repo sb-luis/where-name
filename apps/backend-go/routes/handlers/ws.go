@@ -13,8 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"wiw-backend/routes/middleware"
-	"wiw-backend/store"
+	"github.com/sb-luis/where-name/apps/backend-go/routes/middleware"
+	"github.com/sb-luis/where-name/apps/backend-go/store"
 
 	"github.com/coder/websocket"
 )

@@ -1,4 +1,4 @@
-module wiw-backend
+module github.com/sb-luis/where-name/apps/backend-go
 
 go 1.25.0
 

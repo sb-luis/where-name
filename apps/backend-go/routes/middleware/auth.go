@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"wiw-backend/store"
+	"github.com/sb-luis/where-name/apps/backend-go/store"
 )
 
 type contextKey struct{}
