@@ -78,16 +78,16 @@ export function WelcomePage({
           {loading ? (
             <>
               <p className="text-sm text-gray-600 font-medium">world is loading</p>
-              <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-gray-900 tabular-nums">
+              <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-gray-900 tabular-nums">
                 <NumberFlow value={fetchValue} format={{ maximumFractionDigits: 2 }} /><span className="ml-1">{fetchUnit}</span>
               </h1>
             </>
           ) : (
             <>
-              <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-gray-900 tabular-nums">
+              <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-gray-900 tabular-nums">
                 <NumberFlow value={animatedCount} /> countries ready
               </h1>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-gray-500">
                 how many can you guess in 1 minute?
               </p>
             </>
@@ -111,7 +111,7 @@ export function WelcomePage({
         }`}>
           <div className="flex flex-col gap-2">
             <Button size="lg" onClick={onStart} className="w-full">
-              play
+              <span>play</span>
             </Button>
             {(onPractice || onExplore) && (
               <div className="flex gap-2">

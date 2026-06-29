@@ -1,6 +1,6 @@
 export function Footer() {
   return (
-    <footer className="shrink-0 justify-end pr-7 flex h-10">
+    <footer className="shrink-0 justify-end pr-7 flex h-10 border-t border-gray-200 items-center">
       <a
         href="https://github.com/sb-luis/where-name"
         target="_blank"

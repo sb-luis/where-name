@@ -7,7 +7,7 @@ interface Props {
 
 export function Header({ children }: Props) {
   return (
-    <header className="shrink-0 flex items-center justify-between px-6 h-14">
+    <header className="shrink-0 flex items-center justify-between px-6 h-14 border-b border-gray-200">
       <Link href="/" 
         className="font-black transition-colors"
       >
