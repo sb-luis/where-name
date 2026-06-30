@@ -1,11 +1,16 @@
-import { type ButtonHTMLAttributes } from 'react'
+import { type AnchorHTMLAttributes, type ButtonHTMLAttributes } from 'react'
 
-interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface Variants {
   variant?: 'primary' | 'secondary'
   size?: 'sm' | 'md' | 'lg'
 }
 
-const base = 'inline-flex items-center justify-center rounded-full font-semibold tracking-[0.01em] transition-all duration-150 active:scale-[0.96] disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed select-none'
+type ButtonProps = Variants & ButtonHTMLAttributes<HTMLButtonElement> & { href?: undefined }
+type AnchorProps = Variants & AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }
+
+type Props = ButtonProps | AnchorProps
+
+const base = 'inline-flex items-center justify-center gap-2 rounded-full font-semibold tracking-[0.01em] transition-all duration-150 active:scale-[0.96] disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed select-none'
 
 const variants = {
   primary:   'bg-gray-950 text-white hover:bg-gray-800',
@@ -19,11 +24,18 @@ const sizes = {
 }
 
 export function Button({ variant = 'primary', size = 'md', className = '', children, ...props }: Props) {
+  const classes = `${base} ${variants[variant]} ${sizes[size]} ${className}`
+
+  if (props.href) {
+    return (
+      <a className={classes} {...props}>
+        {children}
+      </a>
+    )
+  }
+
   return (
-    <button
-      className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
-      {...props}
-    >
+    <button className={classes} {...props}>
       {children}
     </button>
   )

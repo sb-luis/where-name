@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import NumberFlow from '@number-flow/react'
 import { PresenceGlobe } from './PresenceGlobe'
@@ -136,15 +137,14 @@ export function WelcomePage({
       </main>
 
       {/* Bottom card */}
-      <div className="shrink-0 w-full max-w-2xl mx-auto rounded-2xl bg-white shadow-sm border border-gray-100 px-5 py-3 flex items-center justify-end">
-        <a
-          href="https://github.com/sb-luis/where-name"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-full px-4 py-1.5 text-sm font-semibold text-gray-600 bg-black/6 hover:bg-black/10 active:scale-95 transition-all duration-300 select-none"
+      <div className="shrink-0 w-full max-w-2xl mx-auto rounded-2xl bg-white shadow-sm border border-gray-100 px-5 py-3 flex items-center justify-between">
+        <p className="text-gray-400">enjoying the game?</p>
+        <Link
+          href="/contribute"
+          className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold text-white bg-gray-950 hover:bg-gray-800 active:scale-95 transition-all duration-150 select-none"
         >
-          github
-        </a>
+          contribute 🙏
+        </Link>
       </div>
 
     </div>
