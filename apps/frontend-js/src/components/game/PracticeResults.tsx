@@ -6,17 +6,10 @@ import type { RoundResult } from '@/lib/game/types'
 import type { CountryStat } from '@/components/stats/WorldMap'
 import type { GeoCollection } from '@/lib/geo/types'
 
-interface PracticeStatsResponse {
-  games_played:    number
-  games_completed: number
-  countries:       CountryStat[]
-}
-
 interface Props {
-  results:        RoundResult[]
-  elapsedMs?:     number
-  geo?:           GeoCollection
-  practiceStats?: PracticeStatsResponse
+  results:    RoundResult[]
+  elapsedMs?: number
+  geo?:       GeoCollection
 }
 
 function formatElapsed(ms: number): string {
@@ -25,24 +18,34 @@ function formatElapsed(ms: number): string {
   return `${Math.floor(s / 60)}m ${s % 60}s`
 }
 
-export function PracticeResults({ results, elapsedMs, geo, practiceStats }: Props) {
+function resultsToCountryStats(results: RoundResult[]): CountryStat[] {
+  const map = new Map<string, CountryStat>()
+  for (const r of results) {
+    const existing = map.get(r.country) ?? { feature: r.country, correct: 0, wrong: 0, skipped: 0, avg_correct_ms: null }
+    if (r.outcome === 'correct') {
+      const prevAvg = existing.avg_correct_ms ?? 0
+      const prevCount = existing.correct
+      existing.avg_correct_ms = prevCount === 0 ? r.timeMs : Math.round((prevAvg * prevCount + r.timeMs) / (prevCount + 1))
+      existing.correct++
+    } else if (r.outcome === 'wrong') {
+      existing.wrong++
+    } else {
+      existing.skipped++
+    }
+    map.set(r.country, existing)
+  }
+  return Array.from(map.values())
+}
+
+export function PracticeResults({ results, elapsedMs, geo }: Props) {
   const correct = results.filter(r => r.outcome === 'correct')
   const wrong   = results.filter(r => r.outcome === 'wrong').length
   const skipped = results.filter(r => r.outcome === 'skipped').length
 
-  const totalCorrect = practiceStats?.countries.reduce((s, c) => s + c.correct, 0) ?? 0
-  const totalWrong   = practiceStats?.countries.reduce((s, c) => s + c.wrong,   0) ?? 0
-  const totalSkipped = practiceStats?.countries.reduce((s, c) => s + c.skipped, 0) ?? 0
+  const gameStats = resultsToCountryStats(results)
 
   return (
     <>
-      {/* This game */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-px bg-gray-200" />
-        <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">This game</span>
-        <div className="flex-1 h-px bg-gray-200" />
-      </div>
-
       <StatCards stats={[
         { label: 'time', value: elapsedMs != null ? formatElapsed(elapsedMs) : '—' },
       ]} />
@@ -70,34 +73,14 @@ export function PracticeResults({ results, elapsedMs, geo, practiceStats }: Prop
         </div>
       )}
 
-      {/* All games */}
-      {practiceStats && (
-        <>
-          <div className="flex items-center gap-3 pt-2">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">All games</span>
-            <div className="flex-1 h-px bg-gray-200" />
-          </div>
-
-          <StatCards stats={[
-            { label: 'games played', value: practiceStats.games_played },
-          ]} />
-
-          <StatCards stats={[
-            { label: 'correct', value: totalCorrect },
-            { label: 'wrong',   value: totalWrong },
-            { label: 'skipped', value: totalSkipped },
-          ]} />
-
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            {geo ? (
-              <WorldMap geo={geo} stats={practiceStats.countries} />
-            ) : (
-              <div className="w-full rounded-xl bg-gray-100 animate-pulse" style={{ paddingBottom: '52.5%' }} />
-            )}
-          </div>
-        </>
-      )}
+      {/* Map — current game only */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        {geo ? (
+          <WorldMap geo={geo} stats={gameStats} />
+        ) : (
+          <div className="w-full rounded-xl bg-gray-100 animate-pulse" style={{ paddingBottom: '52.5%' }} />
+        )}
+      </div>
     </>
   )
 }

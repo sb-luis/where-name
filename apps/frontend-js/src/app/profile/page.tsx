@@ -6,6 +6,27 @@ import { useAuth } from '@/lib/auth/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
+import { StatCards } from '@/components/stats/StatCards'
+import { WorldMap } from '@/components/stats/WorldMap'
+import { useGeoData } from '@/lib/geo/GeoDataContext'
+import { LEVELS } from '@/lib/geo/lod'
+import type { CountryStat } from '@/components/stats/WorldMap'
+import type { GeoCollection } from '@/lib/geo/types'
+
+const VARIANT = 'ne_110m_admin_0_countries'
+
+interface PracticeStats {
+  games_played:    number
+  games_completed: number
+  countries:       CountryStat[]
+}
+
+interface ProfileStats {
+  games_played:    number
+  games_completed: number
+  current_streak:  number
+  longest_streak:  number
+}
 
 export const COLOR_PALETTE = [
   '#ef4444', '#f97316', '#f59e0b',
@@ -65,10 +86,28 @@ export default function ProfilePage() {
   const router = useRouter()
   const { user, loading, updateProfile, logout } = useAuth()
   const { setAlias: emitAlias, setColor: emitColor } = useSocket()
+  const { loadCollection } = useGeoData()
+
+  const [practiceStats, setPracticeStats] = useState<PracticeStats | null>(null)
+  const [profileStats, setProfileStats]   = useState<ProfileStats | null>(null)
+  const [geo, setGeo] = useState<GeoCollection | null>(null)
 
   useEffect(() => {
     if (!loading && !user) router.replace('/')
   }, [loading, user, router])
+
+  useEffect(() => {
+    if (!user) return
+    loadCollection(LEVELS[0].url).then(setGeo).catch(() => {})
+    fetch(`/api/practice/stats?variant=${encodeURIComponent(VARIANT)}`)
+      .then(r => r.ok ? r.json() as Promise<PracticeStats> : Promise.reject())
+      .then(setPracticeStats)
+      .catch(() => {})
+    fetch('/api/stats/profile')
+      .then(r => r.ok ? r.json() as Promise<ProfileStats> : Promise.reject())
+      .then(setProfileStats)
+      .catch(() => {})
+  }, [user, loadCollection])
 
   const [openSection, setOpenSection] = useState<'alias' | 'password' | 'cursor' | null>(null)
   const toggle = (s: typeof openSection) => setOpenSection(prev => prev === s ? null : s)
@@ -272,6 +311,36 @@ export default function ProfilePage() {
           </Section>
 
         </div>
+
+        {/* All games stats */}
+        {practiceStats && (
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">All games</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+
+            <StatCards stats={[
+              { label: 'games played', value: practiceStats.games_played },
+              { label: `${profileStats?.current_streak ?? 0} day streak`, value: profileStats?.current_streak ?? 0 },
+            ]} />
+
+            <StatCards stats={[
+              { label: 'correct', value: practiceStats.countries.reduce((s, c) => s + c.correct, 0) },
+              { label: 'wrong',   value: practiceStats.countries.reduce((s, c) => s + c.wrong,   0) },
+              { label: 'skipped', value: practiceStats.countries.reduce((s, c) => s + c.skipped, 0) },
+            ]} />
+
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              {geo ? (
+                <WorldMap geo={geo} stats={practiceStats.countries} />
+              ) : (
+                <div className="w-full rounded-xl bg-gray-100 animate-pulse" style={{ paddingBottom: '52.5%' }} />
+              )}
+            </div>
+          </div>
+        )}
 
       </div>
     </main>

@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -264,7 +265,11 @@ func (c *client) readPump(ctx context.Context) {
 
 		switch msg.Type {
 		case "set_alias":
-			alias := strings.TrimSpace(msg.Alias)
+			alias := regexp.MustCompile(`[^a-z-]`).ReplaceAllString(strings.ToLower(strings.TrimSpace(msg.Alias)), "")
+			alias = regexp.MustCompile(`-{2,}`).ReplaceAllString(strings.Trim(alias, "-"), "-")
+			if alias == "" {
+				continue
+			}
 			if rs := []rune(alias); len(rs) > 20 {
 				alias = string(rs[:20])
 			}

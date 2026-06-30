@@ -4,22 +4,14 @@ import { useState, useCallback } from 'react'
 import { PracticeResults } from './PracticeResults'
 import { PlayResults } from './PlayResults'
 import type { RoundResult } from '@/lib/game/types'
-import type { CountryStat } from '@/components/stats/WorldMap'
 import type { GeoCollection } from '@/lib/geo/types'
 
-interface PracticeStatsResponse {
-  games_played:    number
-  games_completed: number
-  countries:       CountryStat[]
-}
-
 interface Props {
-  results:        RoundResult[]
-  mode?:          'timed' | 'practice'
-  elapsedMs?:     number
-  geo?:           GeoCollection
-  practiceStats?: PracticeStatsResponse
-  onReturn:       () => void
+  results:    RoundResult[]
+  mode?:      'timed' | 'practice'
+  elapsedMs?: number
+  geo?:       GeoCollection
+  onReturn:   () => void
 }
 
 function formatElapsed(ms: number): string {
@@ -28,7 +20,7 @@ function formatElapsed(ms: number): string {
   return `${Math.floor(s / 60)}m ${s % 60}s`
 }
 
-export function ResultsScreen({ results, mode = 'timed', elapsedMs, geo, practiceStats, onReturn }: Props) {
+export function ResultsScreen({ results, mode = 'timed', elapsedMs, geo, onReturn }: Props) {
   const [copied, setCopied] = useState(false)
 
   const handleShare = useCallback(async () => {
@@ -80,7 +72,6 @@ export function ResultsScreen({ results, mode = 'timed', elapsedMs, geo, practic
             results={results}
             elapsedMs={elapsedMs}
             geo={geo}
-            practiceStats={practiceStats}
           />
         ) : (
           <PlayResults results={results} />

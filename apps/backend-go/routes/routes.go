@@ -26,6 +26,7 @@ func Register(mux *http.ServeMux, s *store.Store, hub *handlers.Hub, allowedOrig
 
 	mux.Handle("POST /practice/games", authMiddleware(http.HandlerFunc(practice.CreateGame)))
 	mux.Handle("GET /practice/stats", authMiddleware(http.HandlerFunc(stats.GetPracticeStats)))
+	mux.Handle("GET /stats/profile", authMiddleware(http.HandlerFunc(stats.GetProfileStats)))
 
 	mux.Handle("GET /ws", authMiddleware(ws))
 }

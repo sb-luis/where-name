@@ -6,12 +6,19 @@ interface Props {
   onSubmit: (alias: string) => void
 }
 
+function sanitizeAlias(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z-]/g, '')
+    .replace(/-{2,}/g, '-')
+}
+
 export function AliasSelect({ onSubmit }: Props) {
   const [value, setValue] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const trimmed = value.trim()
+    const trimmed = value.replace(/^-+|-+$/g, '')
     if (trimmed) onSubmit(trimmed)
   }
 
@@ -20,15 +27,19 @@ export function AliasSelect({ onSubmit }: Props) {
       <input
         type="text"
         value={value}
-        onChange={e => setValue(e.target.value)}
+        onChange={e => setValue(sanitizeAlias(e.target.value))}
         maxLength={20}
-        placeholder="pick an alias…"
+        placeholder="pick-an-alias…"
         autoFocus
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
         className="flex-1 min-w-0 px-5 py-3 rounded-full bg-black/[0.06] text-gray-900 font-semibold text-base focus:outline-none placeholder:text-gray-400 placeholder:font-normal"
       />
       <button
         type="submit"
-        disabled={!value.trim()}
+        disabled={!value.replace(/^-+|-+$/g, '')}
         className="w-12 h-12 shrink-0 rounded-full bg-gray-900 text-white font-semibold text-lg disabled:opacity-20 hover:bg-gray-700 active:scale-95 transition-all duration-150 flex items-center justify-center"
       >
         →
