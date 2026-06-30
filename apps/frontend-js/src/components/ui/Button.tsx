@@ -1,14 +1,16 @@
 import { type AnchorHTMLAttributes, type ButtonHTMLAttributes } from 'react'
 
-interface Variants {
+type SharedProps = {
   variant?: 'primary' | 'secondary'
   size?: 'sm' | 'md' | 'lg'
+  className?: string
+  children?: React.ReactNode
 }
 
-type ButtonProps = Variants & ButtonHTMLAttributes<HTMLButtonElement> & { href?: undefined }
-type AnchorProps = Variants & AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }
+type AsButton = SharedProps & ButtonHTMLAttributes<HTMLButtonElement> & { href?: undefined }
+type AsAnchor = SharedProps & AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }
 
-type Props = ButtonProps | AnchorProps
+type Props = AsButton | AsAnchor
 
 const base = 'inline-flex items-center justify-center gap-2 rounded-full font-semibold tracking-[0.01em] transition-all duration-150 active:scale-[0.96] disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed select-none'
 
@@ -23,19 +25,19 @@ const sizes = {
   lg: 'py-3 px-6 text-sm',
 }
 
-export function Button({ variant = 'primary', size = 'md', className = '', children, ...props }: Props) {
+export function Button({ variant = 'primary', size = 'md', className = '', children, ...rest }: Props) {
   const classes = `${base} ${variants[variant]} ${sizes[size]} ${className}`
 
-  if (props.href) {
+  if (rest.href !== undefined) {
     return (
-      <a className={classes} {...props}>
+      <a className={classes} {...rest as AnchorHTMLAttributes<HTMLAnchorElement>}>
         {children}
       </a>
     )
   }
 
   return (
-    <button className={classes} {...props}>
+    <button className={classes} {...rest as ButtonHTMLAttributes<HTMLButtonElement>}>
       {children}
     </button>
   )
