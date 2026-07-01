@@ -3,12 +3,13 @@
 import {
   createContext,
   useContext,
+  useMemo,
   useRef,
   useState,
   useCallback,
   type ReactNode,
 } from 'react'
-import { useCountryNames, pickRandom } from './countries'
+import { useCountryEntries, pickRandom, filterByContinents, CONTINENTS } from './countries'
 import type { RoundResult } from './types'
 
 export interface LatLng { lat: number; lng: number }
@@ -21,7 +22,7 @@ interface GameContextValue {
   elapsedMs:              number | null
   practiceTimeLimitMs:    number | null
   startGame:              () => void
-  startPractice:          (timeLimitMs: number | null) => void
+  startPractice:          (timeLimitMs: number | null, continents?: readonly string[]) => void
   setResults:             (results: RoundResult[]) => void
   setElapsedMs:           (ms: number | null) => void
   cameraOrientationRef:   React.MutableRefObject<LatLng | null>
@@ -30,7 +31,8 @@ interface GameContextValue {
 const GameContext = createContext<GameContextValue | null>(null)
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  const countryNames                          = useCountryNames()
+  const countryEntries                        = useCountryEntries()
+  const countryNames                          = useMemo(() => countryEntries.map(e => e.name), [countryEntries])
   const [targets, setTargets]                 = useState<string[]>([])
   const [results, setResults]                 = useState<RoundResult[] | null>(null)
   const [mode, setMode]                       = useState<'timed' | 'practice'>('timed')
@@ -46,14 +48,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setResults(null)
   }, [countryNames])
 
-  const startPractice = useCallback((timeLimitMs: number | null) => {
-    if (!countryNames.length) return
+  const startPractice = useCallback((timeLimitMs: number | null, continents: readonly string[] = CONTINENTS) => {
+    const pool = filterByContinents(countryEntries, continents)
+    if (!pool.length) return
     setMode('practice')
     setElapsedMs(null)
     setPracticeTimeLimitMs(timeLimitMs)
-    setTargets(pickRandom(countryNames, countryNames.length))
+    setTargets(pickRandom(pool, pool.length))
     setResults(null)
-  }, [countryNames])
+  }, [countryEntries])
 
   return (
     <GameContext.Provider value={{ countryNames, targets, results, mode, elapsedMs, practiceTimeLimitMs, startGame, startPractice, setResults, setElapsedMs, cameraOrientationRef }}>

@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { WelcomePage } from '@/components/multiplayer/WelcomePage'
-import { PracticeTimeLimitModal } from '@/components/ui/PracticeTimeLimitModal'
+import { PracticeSetupModal } from '@/components/ui/PracticeSetupModal'
+import type { Continent } from '@/lib/game/countries'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { usePresence } from '@/lib/multiplayer/usePresence'
 import { useGame } from '@/lib/game/GameContext'
@@ -32,9 +33,9 @@ export default function Page() {
 
   const handleStart = () => { startGame(); router.push('/play') }
   const handlePractice = () => { setShowPracticeModal(true) }
-  const handlePracticeConfirm = (timeLimitMs: number | null) => {
+  const handlePracticeConfirm = (timeLimitMs: number | null, continents: Continent[]) => {
     setShowPracticeModal(false)
-    startPractice(timeLimitMs)
+    startPractice(timeLimitMs, continents)
     router.push('/practice')
   }
   const handleExplore = () => { router.push('/explore') }
@@ -56,7 +57,7 @@ export default function Page() {
         onCameraChange={handleCameraChange}
       />
       {showPracticeModal && (
-        <PracticeTimeLimitModal
+        <PracticeSetupModal
           onConfirm={handlePracticeConfirm}
           onClose={() => setShowPracticeModal(false)}
         />
