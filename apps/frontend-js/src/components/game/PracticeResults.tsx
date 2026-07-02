@@ -2,14 +2,16 @@
 
 import { WorldMap } from '@/components/stats/WorldMap'
 import { StatCards } from '@/components/stats/StatCards'
+import { Button } from '@/components/ui/Button'
 import type { RoundResult } from '@/lib/game/types'
 import type { CountryStat } from '@/components/stats/WorldMap'
 import type { GeoCollection } from '@/lib/geo/types'
 
 interface Props {
-  results:    RoundResult[]
-  elapsedMs?: number
-  geo?:       GeoCollection
+  results:       RoundResult[]
+  elapsedMs?:    number
+  geo?:          GeoCollection
+  onRetryFailed?: (countries: string[]) => void
 }
 
 function formatElapsed(ms: number): string {
@@ -37,8 +39,9 @@ function resultsToCountryStats(results: RoundResult[]): CountryStat[] {
   return Array.from(map.values())
 }
 
-export function PracticeResults({ results, elapsedMs, geo }: Props) {
+export function PracticeResults({ results, elapsedMs, geo, onRetryFailed }: Props) {
   const correct = results.filter(r => r.outcome === 'correct')
+  const failed   = results.filter(r => r.outcome === 'wrong' || r.outcome === 'skipped')
   const wrong   = results.filter(r => r.outcome === 'wrong').length
   const skipped = results.filter(r => r.outcome === 'skipped').length
 
@@ -55,6 +58,17 @@ export function PracticeResults({ results, elapsedMs, geo }: Props) {
         { label: 'wrong',   value: wrong },
         { label: 'skipped', value: skipped },
       ]} />
+
+      {onRetryFailed && failed.length > 0 && (
+        <Button
+          variant="secondary"
+          size="lg"
+          className="w-full"
+          onClick={() => onRetryFailed(failed.map(r => r.country))}
+        >
+          redemption round! 🗺️
+        </Button>
+      )}
 
       {/* Correct countries breakdown */}
       {correct.length > 0 && (

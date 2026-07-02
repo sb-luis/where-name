@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { ResultsScreen } from '@/components/game/ResultsScreen'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
@@ -12,7 +13,7 @@ import type { GeoCollection } from '@/lib/geo/types'
 export default function ResultsPage() {
   const router              = useRouter()
   const { emitStatus }      = useSocket()
-  const { results, mode, elapsedMs } = useGame()
+  const { results, mode, elapsedMs, startPracticeWithTargets } = useGame()
   const { loadCollection }  = useGeoData()
 
   const [geo, setGeo] = useState<GeoCollection | null>(null)
@@ -38,6 +39,10 @@ export default function ResultsPage() {
       elapsedMs={elapsedMs ?? undefined}
       geo={geo ?? undefined}
       onReturn={() => router.push('/')}
+      onRetryFailed={(countries) => {
+        flushSync(() => { startPracticeWithTargets(countries) })
+        router.push('/practice')
+      }}
     />
   )
 }

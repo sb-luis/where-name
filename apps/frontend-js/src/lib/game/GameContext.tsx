@@ -23,6 +23,7 @@ interface GameContextValue {
   practiceTimeLimitMs:    number | null
   startGame:              () => void
   startPractice:          (timeLimitMs: number | null, continents?: readonly string[]) => void
+  startPracticeWithTargets: (names: string[]) => void
   setResults:             (results: RoundResult[]) => void
   setElapsedMs:           (ms: number | null) => void
   cameraOrientationRef:   React.MutableRefObject<LatLng | null>
@@ -58,8 +59,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setResults(null)
   }, [countryEntries])
 
+  const startPracticeWithTargets = useCallback((names: string[]) => {
+    if (!names.length) return
+    setMode('practice')
+    setElapsedMs(null)
+    setTargets(pickRandom(names, names.length))
+    setResults(null)
+  }, [])
+
   return (
-    <GameContext.Provider value={{ countryNames, targets, results, mode, elapsedMs, practiceTimeLimitMs, startGame, startPractice, setResults, setElapsedMs, cameraOrientationRef }}>
+    <GameContext.Provider value={{ countryNames, targets, results, mode, elapsedMs, practiceTimeLimitMs, startGame, startPractice, startPracticeWithTargets, setResults, setElapsedMs, cameraOrientationRef }}>
       {children}
     </GameContext.Provider>
   )

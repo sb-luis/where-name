@@ -7,11 +7,12 @@ import type { RoundResult } from '@/lib/game/types'
 import type { GeoCollection } from '@/lib/geo/types'
 
 interface Props {
-  results:    RoundResult[]
-  mode?:      'timed' | 'practice'
-  elapsedMs?: number
-  geo?:       GeoCollection
-  onReturn:   () => void
+  results:       RoundResult[]
+  mode?:         'timed' | 'practice'
+  elapsedMs?:    number
+  geo?:          GeoCollection
+  onReturn:      () => void
+  onRetryFailed?: (countries: string[]) => void
 }
 
 function formatElapsed(ms: number): string {
@@ -20,7 +21,7 @@ function formatElapsed(ms: number): string {
   return `${Math.floor(s / 60)}m ${s % 60}s`
 }
 
-export function ResultsScreen({ results, mode = 'timed', elapsedMs, geo, onReturn }: Props) {
+export function ResultsScreen({ results, mode = 'timed', elapsedMs, geo, onReturn, onRetryFailed }: Props) {
   const [copied, setCopied] = useState(false)
 
   const handleShare = useCallback(async () => {
@@ -72,6 +73,7 @@ export function ResultsScreen({ results, mode = 'timed', elapsedMs, geo, onRetur
             results={results}
             elapsedMs={elapsedMs}
             geo={geo}
+            onRetryFailed={onRetryFailed}
           />
         ) : (
           <PlayResults results={results} />
