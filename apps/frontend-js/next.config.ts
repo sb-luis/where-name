@@ -2,18 +2,18 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // dev-only: in prod, Caddy intercepts /geo/* and /api/* 
   async rewrites() {
-    const geoUrl     = process.env.BACKEND_GEO_URL  || 'http://localhost:4100';
-    const backendUrl = process.env.BACKEND_URL       || 'http://localhost:4000';
     return [
       {
-        source: '/geo/:path*',
-        destination: `${geoUrl}/:path*`,
+        // strip /geo/natural_earth prefix before forwarding 
+        source: '/geo/natural_earth/:path*',
+        destination: `${process.env.NATURAL_EARTH_CDN}/:path*`,
       },
       {
-        // Strip /api prefix before forwarding to the backend
+        // strip /api prefix before forwarding 
         source: '/api/:path*',
-        destination: `${backendUrl}/:path*`,
+        destination: `http://localhost:4000/:path*`,
       },
     ];
   },

@@ -4,9 +4,9 @@ export const MAX_FOV     = 80;
 const SLIDER_POWER = 2.5;
 
 export const LEVELS = [
-  { fovMin: 20, url: '/geo/collections/ne_110m_admin_0_countries/items?limit=10000' },
-  { fovMin: 4,  url: '/geo/collections/ne_50m_admin_0_countries/items?limit=10000' },
-  { fovMin: 0,  url: '/geo/collections/ne_10m_admin_0_countries/items?limit=10000' },
+  { fovMin: 20, url: '/geo/natural_earth/110m/cultural/ne_110m_admin_0_countries.geojson' },
+  { fovMin: 4,  url: '/geo/natural_earth/50m/cultural/ne_50m_admin_0_countries.geojson' },
+  { fovMin: 0,  url: '/geo/natural_earth/10m/cultural/ne_10m_admin_0_countries.geojson' },
 ] as const;
 
 export function lodForFov(fov: number): 0 | 1 | 2 {
