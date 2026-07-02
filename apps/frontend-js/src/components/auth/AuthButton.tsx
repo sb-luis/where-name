@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth/AuthContext'
-import { AuthModal } from './AuthModal'
+import { Modal } from '@/components/ui/Modal'
+import { AuthForm } from './AuthForm'
 
 const pill = 'rounded-full px-4 py-1.5 text-sm font-semibold text-gray-600 bg-black/6 hover:bg-black/10 active:scale-95 transition-all duration-300 select-none'
 
@@ -24,7 +25,11 @@ export function AuthButton() {
           log in
         </button>
       )}
-      {showModal && <AuthModal onClose={() => setShowModal(false)} />}
+      {showModal && (
+        <Modal onClose={() => setShowModal(false)}>
+          <AuthForm onSuccess={() => setShowModal(false)} />
+        </Modal>
+      )}
     </>
   )
 }

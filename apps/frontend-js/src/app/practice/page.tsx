@@ -8,28 +8,7 @@ import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { usePresence } from '@/lib/multiplayer/usePresence'
 import { useGame } from '@/lib/game/GameContext'
 import { useAuth } from '@/lib/auth/AuthContext'
-import type { RoundResult } from '@/lib/game/types'
-
-const VARIANT = 'ne_110m_admin_0_countries'
-
-async function savePracticeGame(results: RoundResult[], elapsedMs: number, completed: boolean) {
-  const res = await fetch('/api/practice/games', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      variant: VARIANT,
-      completed,
-      duration_ms: elapsedMs,
-      rounds: results.map((r, i) => ({
-        position:    i,
-        feature:     r.country,
-        attempt:     1,
-        outcome:     r.outcome,
-        duration_ms: r.timeMs,
-      })),
-    }),
-  })
-}
+import { savePracticeGame } from '@/lib/game/api'
 
 export default function PracticePage() {
   const router                                = useRouter()
@@ -71,7 +50,7 @@ export default function PracticePage() {
         }
         const completed = results.length === targets.length
         if (user && elapsedMs != null) {
-          await savePracticeGame(results, elapsedMs, completed)
+          await savePracticeGame(results, elapsedMs, completed).catch(() => {})
         }
         flushSync(() => {
           setResults(results)
