@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { ResultsScreen } from '@/components/game/ResultsScreen'
-import { Modal } from '@/components/ui/Modal'
-import { AuthForm } from '@/components/auth/AuthForm'
+import { SignUpCtaModal } from '@/components/auth/SignUpCtaModal'
 import { StatCards } from '@/components/stats/StatCards'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { useGame } from '@/lib/game/GameContext'
@@ -60,33 +59,24 @@ export default function ResultsPage() {
         />
       </div>
       {gate && (
-        <Modal className="p-8 w-full mx-5 max-w-lg space-y-5" onClose={() => setDecided(true)} closeOnBackdropClick={false}>
+        <SignUpCtaModal
+          message="keep your progress ⛺️"
+          onClose={() => setDecided(true)}
+          onSuccess={() => {
+            if (elapsedMs != null) {
+              const completed = results.length === targets.length
+              savePracticeGame(results, elapsedMs, completed).catch(() => {})
+            }
+          }}
+        >
           <div className="px-5">
-          <StatCards stats={[
-            { label: 'correct', value: correct },
-            { label: 'wrong',   value: wrong },
-            { label: 'skipped', value: skipped },
-          ]} />
+            <StatCards stats={[
+              { label: 'correct', value: correct },
+              { label: 'wrong',   value: wrong },
+              { label: 'skipped', value: skipped },
+            ]} />
           </div>
-
-          <h2 className="text-5xl italic font-bold text-center text-gray-900">
-            keep your progress, enjoy all features!
-          </h2>
-
-          <hr className='text-gray-200 pb-5'></hr>
-
-          <AuthForm
-            defaultTab="register"
-            className="px-10 md:px-20 space-y-3"
-            onSuccess={() => {
-              if (elapsedMs != null) {
-                const completed = results.length === targets.length
-                savePracticeGame(results, elapsedMs, completed).catch(() => {})
-              }
-              setDecided(true)
-            }}
-          />
-        </Modal>
+        </SignUpCtaModal>
       )}
     </>
   )

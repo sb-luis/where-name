@@ -13,6 +13,8 @@ interface Props {
   onStart:          () => void
   onPractice?:      () => void
   onExplore?:       () => void
+  /** Explore is available, but locked behind sign-up — render it muted while keeping it clickable. */
+  exploreLocked?:   boolean
   loading?:         boolean
   countryCount?:    number
   cursors?:         CursorData[]
@@ -30,6 +32,7 @@ export function WelcomePage({
   onStart,
   onPractice,
   onExplore,
+  exploreLocked = false,
   loading = false,
   countryCount = 0,
   cursors = [],
@@ -125,7 +128,12 @@ export function WelcomePage({
                   </Button>
                 )}
                 {onExplore && (
-                  <Button size="lg" variant="secondary" onClick={onExplore} className="flex-1">
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    onClick={onExplore}
+                    className={`flex-1 ${exploreLocked ? 'opacity-40 hover:bg-white hover:border-gray-300' : ''}`}
+                  >
                     explore
                   </Button>
                 )}

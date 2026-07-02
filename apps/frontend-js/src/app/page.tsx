@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { WelcomePage } from '@/components/multiplayer/WelcomePage'
 import { PracticeSetupModal } from '@/components/ui/PracticeSetupModal'
-import { Modal } from '@/components/ui/Modal'
-import { AuthForm } from '@/components/auth/AuthForm'
+import { SignUpCtaModal } from '@/components/auth/SignUpCtaModal'
 import type { Continent } from '@/lib/game/countries'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { usePresence } from '@/lib/multiplayer/usePresence'
 import { useGame } from '@/lib/game/GameContext'
+import { useAuth } from '@/lib/auth/AuthContext'
 
 function randomLatLng() {
   return {
@@ -23,8 +23,9 @@ export default function Page() {
   const { emitCursorMove, emitStatus, sessionInactive } = useSocket()
   const { cursors }  = usePresence()
   const { countryNames, startGame, startPractice, cameraOrientationRef } = useGame()
+  const { user } = useAuth()
   const [showPracticeModal, setShowPracticeModal] = useState(false)
-  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authPrompt, setAuthPrompt] = useState<'customize' | 'explore' | null>(null)
 
   useEffect(() => { emitStatus('home') }, [emitStatus])
 
@@ -43,7 +44,10 @@ export default function Page() {
     startPractice(timeLimitMs, continents)
     router.push('/practice')
   }
-  const handleExplore = () => { router.push('/explore') }
+  const handleExplore = () => {
+    if (!user) { setAuthPrompt('explore'); return }
+    router.push('/explore')
+  }
   const handleCameraChange = (lat: number, lng: number) => {
     cameraOrientationRef.current = { lat, lng }
   }
@@ -54,6 +58,7 @@ export default function Page() {
         onStart={handleStart}
         onPractice={handlePractice}
         onExplore={handleExplore}
+        exploreLocked={!user}
         loading={countryNames.length === 0}
         countryCount={countryNames.length}
         cursors={cursors}
@@ -65,13 +70,15 @@ export default function Page() {
         <PracticeSetupModal
           onConfirm={handlePracticeConfirm}
           onClose={() => setShowPracticeModal(false)}
-          onSignUp={() => setShowAuthModal(true)}
+          onSignUp={() => setAuthPrompt('customize')}
         />
       )}
-      {showAuthModal && (
-        <Modal onClose={() => setShowAuthModal(false)}>
-          <AuthForm defaultTab="register" onSuccess={() => setShowAuthModal(false)} />
-        </Modal>
+      {authPrompt && (
+        <SignUpCtaModal
+          message={authPrompt === 'explore' ? 'explore the world 🗺️' : 'control your practice 🏔️️'}
+          onClose={() => setAuthPrompt(null)}
+          onSuccess={() => { if (authPrompt === 'explore') router.push('/explore') }}
+        />
       )}
     </>
   )

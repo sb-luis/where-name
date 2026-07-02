@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth/AuthContext'
 import { CONTINENTS, type Continent } from '@/lib/game/countries'
 
 const TIME_STORAGE_KEY = 'practice_time_limit'
-const DEFAULT_LIMIT_MS = 15 * 60 * 1000
+const DEFAULT_LIMIT_MS = 1 * 60 * 1000
 
 // minutes → ms, null = no limit
 const OPTIONS: { label: string; ms: number | null }[] = [
@@ -74,7 +74,7 @@ export function savePracticeContinents(continents: Continent[]) {
 const pillBase = 'rounded-full px-4 py-1.5 text-sm font-semibold transition-all duration-150 select-none'
 const pillActive   = `${pillBase} bg-gray-900 text-white cursor-pointer active:scale-95`
 const pillInactive = `${pillBase} bg-black/6 text-gray-600 hover:bg-black/10 cursor-pointer active:scale-95`
-const pillLocked   = `${pillBase} bg-black/4 text-gray-300 cursor-not-allowed`
+const pillLocked   = `${pillBase} bg-black/6 text-gray-600 blur-[2.5px] cursor-not-allowed`
 
 interface Props {
   onConfirm: (timeLimitMs: number | null, continents: Continent[]) => void
@@ -107,10 +107,12 @@ export function PracticeSetupModal({ onConfirm, onClose, onSignUp }: Props) {
   }
 
   return (
-    <Modal className="px-7 py-6 w-full max-w-xs space-y-5" onClose={onClose}>
+    <Modal className="px-7 py-6 mx-6 w-full max-w-md space-y-5" onClose={onClose}>
       <div className="space-y-1">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">Practice</p>
-        <p className="text-base font-bold text-gray-900">set a time limit</p>
+        <p className={`text-base font-bold text-gray-900 ${locked ? 'line-through decoration-2' : ''}`}>
+          set a time limit
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -127,7 +129,9 @@ export function PracticeSetupModal({ onConfirm, onClose, onSignUp }: Props) {
       </div>
 
       <div className="space-y-1">
-        <p className="text-base font-bold text-gray-900">choose continents</p>
+        <p className={`text-base font-bold text-gray-900 ${locked ? 'line-through decoration-2' : ''}`}>
+          choose continents
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -146,7 +150,7 @@ export function PracticeSetupModal({ onConfirm, onClose, onSignUp }: Props) {
       {locked ? (
         <Button
           variant="secondary"
-          className="w-full mt-5 mb-3"
+          className="w-full mb-3"
           onClick={() => { onClose(); onSignUp?.() }}
         >
           sign up to customize
