@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { WelcomePage } from '@/components/multiplayer/WelcomePage'
 import { PracticeSetupModal } from '@/components/ui/PracticeSetupModal'
@@ -18,10 +18,12 @@ function randomLatLng() {
 
 export default function Page() {
   const router = useRouter()
-  const { emitCursorMove, sessionInactive } = useSocket()
+  const { emitCursorMove, emitStatus, sessionInactive } = useSocket()
   const { cursors }  = usePresence()
   const { countryNames, startGame, startPractice, cameraOrientationRef } = useGame()
   const [showPracticeModal, setShowPracticeModal] = useState(false)
+
+  useEffect(() => { emitStatus('home') }, [emitStatus])
 
   const initialPosition = useMemo(() => {
     if (cameraOrientationRef.current) return cameraOrientationRef.current

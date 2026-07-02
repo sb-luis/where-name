@@ -27,6 +27,14 @@ const (
 	takeoverTimeout = 30 * time.Second
 )
 
+// Mirrors the frontend UserStatus union (src/lib/multiplayer/types.ts).
+var allowedStatuses = map[string]bool{
+	"home":     true,
+	"explore":  true,
+	"practice": true,
+	"playing":  true,
+	"results":  true,
+}
 
 type Visitor struct {
 	ID            string   `json:"id"`
@@ -284,7 +292,7 @@ func (c *client) readPump(ctx context.Context) {
 			c.hub.broadcast(msgVisitorUpdatedColor(c.id, msg.Color))
 
 		case "set_status":
-			if msg.Status != "home" && msg.Status != "playing" {
+			if !allowedStatuses[msg.Status] {
 				continue
 			}
 			c.hub.updateVisitor(c, func(v *Visitor) { v.Status = msg.Status })
