@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { WelcomePage } from '@/components/multiplayer/WelcomePage'
 import { PracticeSetupModal } from '@/components/ui/PracticeSetupModal'
+import { Modal } from '@/components/ui/Modal'
+import { AuthForm } from '@/components/auth/AuthForm'
 import type { Continent } from '@/lib/game/countries'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { usePresence } from '@/lib/multiplayer/usePresence'
@@ -22,6 +24,7 @@ export default function Page() {
   const { cursors }  = usePresence()
   const { countryNames, startGame, startPractice, cameraOrientationRef } = useGame()
   const [showPracticeModal, setShowPracticeModal] = useState(false)
+  const [showAuthModal, setShowAuthModal] = useState(false)
 
   useEffect(() => { emitStatus('home') }, [emitStatus])
 
@@ -62,7 +65,13 @@ export default function Page() {
         <PracticeSetupModal
           onConfirm={handlePracticeConfirm}
           onClose={() => setShowPracticeModal(false)}
+          onSignUp={() => setShowAuthModal(true)}
         />
+      )}
+      {showAuthModal && (
+        <Modal onClose={() => setShowAuthModal(false)}>
+          <AuthForm defaultTab="register" onSuccess={() => setShowAuthModal(false)} />
+        </Modal>
       )}
     </>
   )

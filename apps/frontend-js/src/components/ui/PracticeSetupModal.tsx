@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
+import { useAuth } from '@/lib/auth/AuthContext'
 import { CONTINENTS, type Continent } from '@/lib/game/countries'
 
 const TIME_STORAGE_KEY = 'practice_time_limit'
@@ -69,12 +71,21 @@ export function savePracticeContinents(continents: Continent[]) {
   } catch {}
 }
 
+const pillBase = 'rounded-full px-4 py-1.5 text-sm font-semibold transition-all duration-150 select-none'
+const pillActive   = `${pillBase} bg-gray-900 text-white cursor-pointer active:scale-95`
+const pillInactive = `${pillBase} bg-black/6 text-gray-600 hover:bg-black/10 cursor-pointer active:scale-95`
+const pillLocked   = `${pillBase} bg-black/4 text-gray-300 cursor-not-allowed`
+
 interface Props {
   onConfirm: (timeLimitMs: number | null, continents: Continent[]) => void
   onClose:   () => void
+  onSignUp?: () => void
 }
 
-export function PracticeSetupModal({ onConfirm, onClose }: Props) {
+export function PracticeSetupModal({ onConfirm, onClose, onSignUp }: Props) {
+  const { user }  = useAuth()
+  const locked    = !user
+
   const [selectedTime, setSelectedTime]             = useState<number | null>(loadPracticeTimeLimit)
   const [selectedContinents, setSelectedContinents] = useState<Continent[]>(loadPracticeContinents)
 
@@ -85,6 +96,10 @@ export function PracticeSetupModal({ onConfirm, onClose }: Props) {
   }
 
   const handleConfirm = () => {
+    if (locked) {
+      onConfirm(DEFAULT_LIMIT_MS, [...CONTINENTS])
+      return
+    }
     if (!selectedContinents.length) return
     savePracticeTimeLimit(selectedTime)
     savePracticeContinents(selectedContinents)
@@ -92,71 +107,57 @@ export function PracticeSetupModal({ onConfirm, onClose }: Props) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="relative bg-white rounded-2xl shadow-lg px-7 py-6 w-full max-w-xs space-y-5"
-        onClick={e => e.stopPropagation()}
-      >
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-300 hover:text-gray-500 transition-colors text-xl leading-none cursor-pointer"
-          aria-label="Close"
-        >
-          ×
-        </button>
-
-        <div className="space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">Practice</p>
-          <p className="text-base font-bold text-gray-900">set a time limit</p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {OPTIONS.map(opt => (
-            <button
-              key={String(opt.ms)}
-              onClick={() => setSelectedTime(opt.ms)}
-              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-all duration-150 active:scale-95 cursor-pointer select-none ${
-                selectedTime === opt.ms
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-black/6 text-gray-600 hover:bg-black/10'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="space-y-1">
-          <p className="text-base font-bold text-gray-900">choose continents</p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {CONTINENTS.map(continent => (
-            <button
-              key={continent}
-              onClick={() => toggleContinent(continent)}
-              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-all duration-150 active:scale-95 cursor-pointer select-none ${
-                selectedContinents.includes(continent)
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-black/6 text-gray-600 hover:bg-black/10'
-              }`}
-            >
-              {CONTINENT_LABELS[continent]}
-            </button>
-          ))}
-        </div>
-
-        {!selectedContinents.length && (
-          <p className="text-xs text-red-500">select at least one continent</p>
-        )}
-
-        <Button className="w-full" onClick={handleConfirm} disabled={!selectedContinents.length}>
-          start
-        </Button>
+    <Modal className="px-7 py-6 w-full max-w-xs space-y-5" onClose={onClose}>
+      <div className="space-y-1">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">Practice</p>
+        <p className="text-base font-bold text-gray-900">set a time limit</p>
       </div>
-    </div>
+
+      <div className="flex flex-wrap gap-2">
+        {OPTIONS.map(opt => (
+          <button
+            key={String(opt.ms)}
+            onClick={() => !locked && setSelectedTime(opt.ms)}
+            disabled={locked}
+            className={locked ? pillLocked : selectedTime === opt.ms ? pillActive : pillInactive}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-1">
+        <p className="text-base font-bold text-gray-900">choose continents</p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {CONTINENTS.map(continent => (
+          <button
+            key={continent}
+            onClick={() => !locked && toggleContinent(continent)}
+            disabled={locked}
+            className={locked ? pillLocked : selectedContinents.includes(continent) ? pillActive : pillInactive}
+          >
+            {CONTINENT_LABELS[continent]}
+          </button>
+        ))}
+      </div>
+
+      {locked ? (
+        <Button
+          variant="secondary"
+          className="w-full mt-5 mb-3"
+          onClick={() => { onClose(); onSignUp?.() }}
+        >
+          sign up to customize
+        </Button>
+      ) : !selectedContinents.length && (
+        <p className="text-xs text-red-500">select at least one continent</p>
+      )}
+
+      <Button className="w-full" onClick={handleConfirm} disabled={!locked && !selectedContinents.length}>
+        start
+      </Button>
+    </Modal>
   )
 }
