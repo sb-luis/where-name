@@ -25,11 +25,12 @@ services:
     build:
       context: ./apps/frontend-js
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_POSTHOG_KEY: ${POSTHOG_API_KEY}
+        NEXT_PUBLIC_POSTHOG_ENABLED: ${POSTHOG_ENABLED}
+        NEXT_PUBLIC_APP_ENV: ${APP_ENV}
     environment:
       - PORT=3000
-      - NEXT_PUBLIC_POSTHOG_KEY=${POSTHOG_API_KEY}
-      - NEXT_PUBLIC_POSTHOG_ENABLED=${POSTHOG_ENABLED}
-      - NEXT_PUBLIC_APP_ENV=${APP_ENV}
     ports:
       - "3000:3000"
     depends_on:
