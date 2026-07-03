@@ -150,7 +150,7 @@ func clearSessionCookie(w http.ResponseWriter) {
 }
 
 func userJSON(u store.User) map[string]any {
-	return map[string]any{"id": u.ID, "username": u.Username, "color": u.CursorColor}
+	return map[string]any{"id": u.ID, "username": u.Username, "color": u.CursorColor, "created_at": u.CreatedAt}
 }
 
 // --- handlers ---

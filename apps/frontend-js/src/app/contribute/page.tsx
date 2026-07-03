@@ -1,8 +1,18 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
+import { track } from '@/lib/analytics/track'
+import { EVENTS } from '@/lib/analytics/events'
+import { useAuth } from '@/lib/auth/AuthContext'
 
 export default function ContributePage() {
+  const { user } = useAuth()
+
+  const trackClick = (target: string) =>
+    track(EVENTS.CONTRIBUTE_LINK_CLICKED, { target, authenticated: !!user })
+
   return (
     <main className="h-dvh overflow-y-auto bg-[#f3f3f3] px-4 py-5 md:px-6">
       <div className="max-w-2xl mx-auto space-y-4 pb-10">
@@ -49,6 +59,7 @@ export default function ContributePage() {
             target="_blank"
             rel="noopener noreferrer"
             size="lg"
+            onClick={() => trackClick('coffee')}
           >
             <Image src="/buy-me-a-coffee.svg" alt="" width={18} height={18} className="invert" />
             buy me a coffee
@@ -60,6 +71,7 @@ export default function ContributePage() {
             rel="noopener noreferrer"
             variant="secondary"
             size="lg"
+            onClick={() => trackClick('github')}
           >
             <Image src="/github.svg" alt="" width={18} height={18} />
             star on github
@@ -73,6 +85,7 @@ export default function ContributePage() {
               variant="secondary"
               size="lg"
               className="flex-1"
+              onClick={() => trackClick('bluesky')}
             >
               <Image src="/bluesky.svg" alt="" width={18} height={18} />
               bluesky
@@ -84,6 +97,7 @@ export default function ContributePage() {
               variant="secondary"
               size="lg"
               className="flex-1"
+              onClick={() => trackClick('mastodon')}
             >
               <Image src="/mastodon.svg" alt="" width={18} height={18} />
               mastodon

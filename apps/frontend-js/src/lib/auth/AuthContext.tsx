@@ -7,6 +7,7 @@ export interface AuthUser {
   id: number
   username: string
   color: string
+  created_at: string
 }
 
 interface AuthContextValue {
@@ -61,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await parseJson(r)
     if (!r.ok) throw new Error(data?.error as string ?? 'Login failed')
     const loggedInUser = data as unknown as AuthUser
-    identify(loggedInUser.id)
+    identify(loggedInUser.id, { signed_up_at: loggedInUser.created_at })
     setUser(loggedInUser)
   }, [])
 
@@ -74,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await parseJson(r)
     if (!r.ok) throw new Error(data?.error as string ?? 'Registration failed')
     const registeredUser = data as unknown as AuthUser
-    identify(registeredUser.id)
+    identify(registeredUser.id, { signed_up_at: registeredUser.created_at })
     setUser(registeredUser)
   }, [])
 
