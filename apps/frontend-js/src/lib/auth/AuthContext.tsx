@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
+import { identify, resetIdentity } from '@/lib/analytics/track'
 
 export interface AuthUser {
   id: number
@@ -12,7 +13,7 @@ interface AuthContextValue {
   user: AuthUser | null
   loading: boolean
   login: (username: string, password: string) => Promise<void>
-  register: (username: string, password: string) => Promise<void>
+  register: (username: string, password: string, analyticsContext?: string) => Promise<void>
   logout: () => Promise<void>
   updateProfile: (body: {
     username?: string
@@ -59,22 +60,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     const data = await parseJson(r)
     if (!r.ok) throw new Error(data?.error as string ?? 'Login failed')
-    setUser(data as unknown as AuthUser)
+    const loggedInUser = data as unknown as AuthUser
+    identify(loggedInUser.id)
+    setUser(loggedInUser)
   }, [])
 
-  const register = useCallback(async (username: string, password: string) => {
+  const register = useCallback(async (username: string, password: string, analyticsContext?: string) => {
     const r = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, context: analyticsContext }),
     })
     const data = await parseJson(r)
     if (!r.ok) throw new Error(data?.error as string ?? 'Registration failed')
-    setUser(data as unknown as AuthUser)
+    const registeredUser = data as unknown as AuthUser
+    identify(registeredUser.id)
+    setUser(registeredUser)
   }, [])
 
   const logout = useCallback(async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
+    resetIdentity()
     setUser(null)
   }, [])
 

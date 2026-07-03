@@ -7,7 +7,6 @@ import { GameScreen } from '@/components/game/GameScreen'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { usePresence } from '@/lib/multiplayer/usePresence'
 import { useGame } from '@/lib/game/GameContext'
-import { useAuth } from '@/lib/auth/AuthContext'
 import { savePracticeGame } from '@/lib/game/api'
 
 export default function PracticePage() {
@@ -15,7 +14,6 @@ export default function PracticePage() {
   const { emitCursorMove, emitStatus }        = useSocket()
   const { cursors }                           = usePresence()
   const { targets, setResults, setElapsedMs, cameraOrientationRef, practiceTimeLimitMs } = useGame()
-  const { user }                              = useAuth()
 
   useEffect(() => { emitStatus('practice') }, [emitStatus])
 
@@ -49,7 +47,7 @@ export default function PracticePage() {
           return
         }
         const completed = results.length === targets.length
-        if (user && elapsedMs != null) {
+        if (elapsedMs != null) {
           await savePracticeGame(results, elapsedMs, completed).catch(() => {})
         }
         flushSync(() => {

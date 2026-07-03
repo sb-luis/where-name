@@ -10,6 +10,8 @@ import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { usePresence } from '@/lib/multiplayer/usePresence'
 import { useGame } from '@/lib/game/GameContext'
 import { useAuth } from '@/lib/auth/AuthContext'
+import { track } from '@/lib/analytics/track'
+import { EVENTS } from '@/lib/analytics/events'
 
 function randomLatLng() {
   return {
@@ -41,6 +43,11 @@ export default function Page() {
   const handlePractice = () => { setShowPracticeModal(true) }
   const handlePracticeConfirm = (timeLimitMs: number | null, continents: Continent[]) => {
     setShowPracticeModal(false)
+    track(EVENTS.PRACTICE_STARTED, {
+      time_limit_ms: timeLimitMs,
+      continents,
+      authenticated: !!user,
+    })
     startPractice(timeLimitMs, continents)
     router.push('/practice')
   }
@@ -75,6 +82,7 @@ export default function Page() {
       )}
       {authPrompt && (
         <SignUpCtaModal
+          analyticsContext={authPrompt === 'explore' ? 'explore' : 'customize_practice'}
           message={authPrompt === 'explore' ? 'explore the world 🗺️' : 'control your practice 🏔️️'}
           onClose={() => setAuthPrompt(null)}
           onSuccess={() => { if (authPrompt === 'explore') router.push('/explore') }}

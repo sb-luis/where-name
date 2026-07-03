@@ -3,8 +3,11 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/sb-luis/where-name/apps/backend-go/analytics"
 	"github.com/sb-luis/where-name/apps/backend-go/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/store"
+
+	"github.com/posthog/posthog-go"
 )
 
 type PracticeHandler struct {
@@ -16,17 +19,15 @@ func NewPracticeHandler(s *store.Store) *PracticeHandler {
 }
 
 func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
-	user, ok := middleware.UserFromCtx(r.Context())
-	if !ok {
-		writeError(w, http.StatusUnauthorized, "not authenticated")
-		return
-	}
+	user, authenticated := middleware.UserFromCtx(r.Context())
 
 	var body struct {
-		Variant    string `json:"variant"`
-		Completed  bool   `json:"completed"`
-		DurationMs int64  `json:"duration_ms"`
-		Rounds     []struct {
+		Variant       string `json:"variant"`
+		Completed     bool   `json:"completed"`
+		DurationMs    int64  `json:"duration_ms"`
+		DistinctId    string `json:"distinct_id"`
+		SkipAnalytics bool   `json:"skip_analytics"`
+		Rounds        []struct {
 			Position   int16  `json:"position"`
 			Feature    string `json:"feature"`
 			Attempt    int16  `json:"attempt"`
@@ -48,10 +49,19 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rounds := make([]store.CreatePracticeRoundParams, len(body.Rounds))
+	var correct, wrong, skipped int
 	for i, r := range body.Rounds {
 		if r.Outcome != "correct" && r.Outcome != "wrong" && r.Outcome != "skipped" {
 			writeError(w, http.StatusUnprocessableEntity, "outcome must be 'correct', 'wrong', or 'skipped'")
 			return
+		}
+		switch r.Outcome {
+		case "correct":
+			correct++
+		case "wrong":
+			wrong++
+		case "skipped":
+			skipped++
 		}
 		rounds[i] = store.CreatePracticeRoundParams{
 			Position:   r.Position,
@@ -62,11 +72,30 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if !body.SkipAnalytics {
+		distinctID := body.DistinctId
+		if authenticated {
+			distinctID = analytics.DistinctID(user.ID)
+		}
+		analytics.Capture(distinctID, "practice_completed", posthog.NewProperties().
+			Set("completed", body.Completed).
+			Set("correct", correct).
+			Set("wrong", wrong).
+			Set("skipped", skipped).
+			Set("duration_ms", body.DurationMs).
+			Set("authenticated", authenticated))
+	}
+
+	if !authenticated {
+		writeJSON(w, http.StatusOK, map[string]any{"saved": false})
+		return
+	}
+
 	game, err := h.store.CreatePracticeGame(r.Context(), user.ID, body.Variant, body.Completed, body.DurationMs, rounds)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, map[string]any{"id": game.ID})
+	writeJSON(w, http.StatusCreated, map[string]any{"id": game.ID, "saved": true})
 }

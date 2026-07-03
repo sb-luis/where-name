@@ -12,11 +12,13 @@ interface Props {
   onSuccess?:  (tab: AuthTab) => void
   /** Spacing for the root wrapper — fully replaces the default, not merged. */
   className?: string
+  /** Which gate/context this form was opened from */
+  analyticsContext?: string
 }
 
 const DEFAULT_WRAPPER_CLASS = 'space-y-5'
 
-export function AuthForm({ defaultTab = 'login', onSuccess, className = DEFAULT_WRAPPER_CLASS }: Props) {
+export function AuthForm({ defaultTab = 'login', onSuccess, className = DEFAULT_WRAPPER_CLASS, analyticsContext }: Props) {
   const { login, register }     = useAuth()
   const [tab, setTab]           = useState<AuthTab>(defaultTab)
   const [username, setUsername] = useState('')
@@ -36,7 +38,7 @@ export function AuthForm({ defaultTab = 'login', onSuccess, className = DEFAULT_
       if (tab === 'login') {
         await login(username, password)
       } else {
-        await register(username, password)
+        await register(username, password, analyticsContext)
       }
       onSuccess?.(tab)
     } catch (err) {

@@ -23,6 +23,18 @@
     # WebSocket connection — proxied directly, no prefix to strip
     reverse_proxy /ws {$BACKEND_ENDPOINT}
 
+    # PostHog ingestion
+    handle_path /ingest/static/* {
+        reverse_proxy https://eu-assets.i.posthog.com {
+            header_up Host eu-assets.i.posthog.com
+        }
+    }
+    handle_path /ingest/* {
+        reverse_proxy https://eu.i.posthog.com {
+            header_up Host eu.i.posthog.com
+        }
+    }
+
 
     # Handle all other requests to frontend
     reverse_proxy /* {$FRONTEND_ENDPOINT}

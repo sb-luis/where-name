@@ -8,16 +8,27 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
+	"github.com/sb-luis/where-name/apps/backend-go/analytics"
 	"github.com/sb-luis/where-name/apps/backend-go/routes"
 	"github.com/sb-luis/where-name/apps/backend-go/routes/handlers"
 	"github.com/sb-luis/where-name/apps/backend-go/store"
 )
 
 func main() {
+	godotenv.Load()
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "4000"
 	}
+
+	appEnv := os.Getenv("APP_ENV")
+	if appEnv == "" {
+		appEnv = "local"
+	}
+	analytics.Init(os.Getenv("POSTHOG_API_KEY"), os.Getenv("POSTHOG_HOST"), appEnv, os.Getenv("POSTHOG_ENABLED") == "true")
+	defer analytics.Close()
 
 	raw := os.Getenv("ALLOWED_ORIGINS")
 	if raw == "" {

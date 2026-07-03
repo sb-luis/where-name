@@ -13,10 +13,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sb-luis/where-name/apps/backend-go/analytics"
 	"github.com/sb-luis/where-name/apps/backend-go/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/store"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/posthog/posthog-go"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -157,6 +159,9 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
+		// Which signup gate triggered this registration
+		// (e.g. "explore", "customize_practice", "practice_results").
+		AnalyticsContext string `json:"context"`
 	}
 	if err := readBody(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -194,6 +199,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	setSessionCookie(w, sess.ID, sess.ExpiresAt)
+
+	analytics.Capture(analytics.DistinctID(user.ID), "signup_completed", posthog.NewProperties().
+		Set("context", body.AnalyticsContext))
+
 	writeJSON(w, http.StatusCreated, userJSON(user))
 }
 

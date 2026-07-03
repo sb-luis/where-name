@@ -60,12 +60,15 @@ export default function ResultsPage() {
       </div>
       {gate && (
         <SignUpCtaModal
+          analyticsContext="practice_results"
           message="keep your progress ⛺️"
           onClose={() => setDecided(true)}
           onSuccess={() => {
             if (elapsedMs != null) {
               const completed = results.length === targets.length
-              savePracticeGame(results, elapsedMs, completed).catch(() => {})
+              // practice_completed was already reported (server side)
+              // this call is just persisting data, now that they've signed up.
+              savePracticeGame(results, elapsedMs, completed, { skipAnalytics: true }).catch(() => {})
             }
           }}
         >

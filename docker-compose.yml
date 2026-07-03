@@ -27,6 +27,9 @@ services:
       dockerfile: Dockerfile
     environment:
       - PORT=3000
+      - NEXT_PUBLIC_POSTHOG_KEY=${POSTHOG_API_KEY}
+      - NEXT_PUBLIC_POSTHOG_ENABLED=${POSTHOG_ENABLED}
+      - NEXT_PUBLIC_APP_ENV=${APP_ENV}
     ports:
       - "3000:3000"
     depends_on:
@@ -42,6 +45,10 @@ services:
       - DATABASE_URL=postgres://wiw_user:wiw_password@postgres:5432/wiw_db?sslmode=disable
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost
       - COOKIE_SECURE=false
+      - POSTHOG_API_KEY=${POSTHOG_API_KEY}
+      - POSTHOG_HOST=${POSTHOG_HOST}
+      - POSTHOG_ENABLED=${POSTHOG_ENABLED}
+      - APP_ENV=${APP_ENV}
     ports:
       - '4000:4000'
     depends_on:

@@ -1,6 +1,12 @@
 import type { RoundResult } from './types'
+import { getDistinctId } from '@/lib/analytics/track'
 
-export async function savePracticeGame(results: RoundResult[], elapsedMs: number, completed: boolean) {
+export async function savePracticeGame(
+  results: RoundResult[],
+  elapsedMs: number,
+  completed: boolean,
+  opts: { skipAnalytics?: boolean } = {},
+) {
   const res = await fetch('/api/practice/games', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -8,6 +14,8 @@ export async function savePracticeGame(results: RoundResult[], elapsedMs: number
       variant: 'ne_110m_admin_0_countries',
       completed,
       duration_ms: elapsedMs,
+      distinct_id: getDistinctId(),
+      skip_analytics: opts.skipAnalytics ?? false,
       rounds: results.map((r, i) => ({
         position:    i,
         feature:     r.country,
