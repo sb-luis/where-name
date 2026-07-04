@@ -101,6 +101,20 @@ const (
 	maxPasswordBytes  = 256         // caps Argon2 hashing cost regardless of body size
 )
 
+func validateUsername(username string) error {
+	if !usernameRe.MatchString(username) {
+		return fmt.Errorf("username must be 2–20 characters: letters, numbers, underscores only")
+	}
+	return nil
+}
+
+func validatePassword(password string) error {
+	if len(password) < 8 || len(password) > maxPasswordBytes {
+		return fmt.Errorf("password must be 8-256 characters")
+	}
+	return nil
+}
+
 func readBody(w http.ResponseWriter, r *http.Request, dst any) error {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytesSmall)
 	return json.NewDecoder(r.Body).Decode(dst)
@@ -168,12 +182,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if !usernameRe.MatchString(body.Username) {
-		writeError(w, http.StatusUnprocessableEntity, "username must be 2–20 characters: letters, numbers, underscores only")
+	if err := validateUsername(body.Username); err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
-	if len(body.Password) < 8 || len(body.Password) > maxPasswordBytes {
-		writeError(w, http.StatusUnprocessableEntity, "password must be 8-256 characters")
+	if err := validatePassword(body.Password); err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 
@@ -285,8 +299,8 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if body.Username != nil {
-		if !usernameRe.MatchString(*body.Username) {
-			writeError(w, http.StatusUnprocessableEntity, "username must be 2–20 characters: letters, numbers, underscores only")
+		if err := validateUsername(*body.Username); err != nil {
+			writeError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 		if err := h.store.UpdateUsername(r.Context(), user.ID, *body.Username); err != nil {
@@ -305,8 +319,8 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusUnprocessableEntity, "current_password is required to set a new password")
 			return
 		}
-		if len(*body.NewPassword) < 8 || len(*body.NewPassword) > maxPasswordBytes {
-			writeError(w, http.StatusUnprocessableEntity, "password must be 8-256 characters")
+		if err := validatePassword(*body.NewPassword); err != nil {
+			writeError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 		fresh, err := h.store.GetUserByID(r.Context(), user.ID)
