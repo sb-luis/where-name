@@ -337,12 +337,12 @@ func NewWSHandler(hub *Hub, s *store.Store, allowedOrigins []string) *WSHandler 
 	return &WSHandler{hub: hub, store: s, allowedOrigins: allowedOrigins}
 }
 
-func newID() string {
+func newID() (string, error) {
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
-		panic(err)
+		return "", err
 	}
-	return hex.EncodeToString(b)
+	return hex.EncodeToString(b), nil
 }
 
 func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -354,7 +354,12 @@ func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := newID()
+	id, err := newID()
+	if err != nil {
+		log.Printf("generate visitor id: %v", err)
+		conn.Close(websocket.StatusInternalError, "")
+		return
+	}
 
 	var alias *string
 	var userID *int64
