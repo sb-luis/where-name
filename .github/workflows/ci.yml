@@ -13,7 +13,7 @@ jobs:
         working-directory: apps/backend-go
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: apps/backend-go/go.mod
           cache-dependency-path: apps/backend-go/go.sum
