@@ -18,7 +18,6 @@ services:
       - PORT=8080
       - FRONTEND_ENDPOINT=http://frontend:3000
       - BACKEND_ENDPOINT=http://backend:4000
-      - BACKEND_GEO_ENDPOINT=http://backend-geo:4100
 
   frontend:
     container_name: where-name-frontend
@@ -54,20 +53,6 @@ services:
       - '4000:4000'
     depends_on:
       - postgres
-
-  backend-geo:
-    container_name: where-name-backend-geo
-    build:
-      context: ./apps/backend-py
-      dockerfile: Dockerfile
-    environment:
-      - HOST=0.0.0.0
-      - PORT=4100
-      - DATA_DIR=/data/natural_earth
-    volumes:
-      - ./apps/backend-py/data/natural_earth:/data/natural_earth:ro
-    ports:
-      - '4100:4100'
 
   postgres:
     image: postgres:16-alpine

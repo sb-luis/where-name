@@ -6,17 +6,16 @@ Guess the country geography game with real-time multiplayer presence.
 
 - **Frontend** — Next.js (`apps/frontend-js`)
 - **Backend** — Go (`apps/backend-go`)
-- **Geo API** — Python / pygeoapi (`apps/backend-py`)
 - **Reverse proxy** — Caddy (`apps/reverse-proxy`)
 - **Database** — PostgreSQL
 
 ## Running locally
 
-Docker runs everything behind Caddy. For local development, the Go backend and frontend run outside Docker while postgres and the geo API stay containerised.
+Docker runs everything behind Caddy. For local development, the Go backend and frontend run outside Docker while postgres stays containerised.
 
 ```sh
-# start postgres + geo API
-docker compose up postgres backend-geo -d
+# start postgres
+docker compose up postgres -d
 
 # backend
 cd apps/backend-go && air
