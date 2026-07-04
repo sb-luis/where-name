@@ -17,11 +17,15 @@
 
     # Handle API requests — handle_path strips the /api prefix before forwarding
     handle_path /api/* {
-        reverse_proxy {$BACKEND_ENDPOINT}
+        reverse_proxy {$BACKEND_ENDPOINT} {
+            header_up X-Real-IP {http.request.remote.host}
+        }
     }
 
     # WebSocket connection — proxied directly, no prefix to strip
-    reverse_proxy /ws {$BACKEND_ENDPOINT}
+    reverse_proxy /ws {$BACKEND_ENDPOINT} {
+        header_up X-Real-IP {http.request.remote.host}
+    }
 
     # PostHog ingestion
     handle_path /ingest/static/* {

@@ -14,12 +14,14 @@ import (
 	"time"
 
 	"github.com/sb-luis/where-name/apps/backend-go/analytics"
+	"github.com/sb-luis/where-name/apps/backend-go/ratelimit"
 	"github.com/sb-luis/where-name/apps/backend-go/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/store"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/posthog/posthog-go"
 	"golang.org/x/crypto/argon2"
+	"golang.org/x/time/rate"
 )
 
 const sessionTTL = 30 * 24 * time.Hour
@@ -37,12 +39,53 @@ func randomPaletteColor() string {
 	return palette[int(b[0])%len(palette)]
 }
 
+// loginRate/registerRate cap credential and account-creation attempts per IP:
+// a small burst for legitimate retries (e.g. a mistyped password), throttled
+// to a sustained ~5/min after that. Argon2 hashing is deliberately expensive
+// (see argon2Params), so register is limited the same as login rather than
+// more loosely — an unauthenticated flood of registrations is at least as
+// costly as one of login attempts.
+const (
+	authRateLimit      = rate.Limit(1.0 / 12) // (1/12 sec) ~5 requests/min steady state
+	authRateBurst      = 5
+	authRateIdleTTL    = 10 * time.Minute
+	authRateSweepEvery = 10 * time.Minute
+)
+
 type AuthHandler struct {
-	store *store.Store
+	store           *store.Store
+	loginLimiter    *ratelimit.Limiter
+	registerLimiter *ratelimit.Limiter
 }
 
 func NewAuthHandler(s *store.Store) *AuthHandler {
-	return &AuthHandler{store: s}
+	h := &AuthHandler{
+		store:           s,
+		loginLimiter:    ratelimit.New(authRateLimit, authRateBurst, authRateIdleTTL),
+		registerLimiter: ratelimit.New(authRateLimit, authRateBurst, authRateIdleTTL),
+	}
+
+	go func() {
+		t := time.NewTicker(authRateSweepEvery)
+		defer t.Stop()
+		for range t.C {
+			h.loginLimiter.Sweep()
+			h.registerLimiter.Sweep()
+		}
+	}()
+
+	return h
+}
+
+// clientIP returns the address to key rate limiting on.
+// Caddy resolves the real client IP itself
+// X-Forwarded-For is deliberately not used here: it's a hop-by-hop list that proxies append to
+// r.RemoteAddr is used as a fallback e.g. in local dev without Caddy in front.
+func clientIP(r *http.Request) string {
+	if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
+		return ip
+	}
+	return r.RemoteAddr
 }
 
 // --- Argon2id ---
@@ -171,6 +214,11 @@ func userJSON(u store.User) map[string]any {
 // --- handlers ---
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	if !h.registerLimiter.Allow(clientIP(r)) {
+		writeError(w, http.StatusTooManyRequests, "too many requests, please try again later")
+		return
+	}
+
 	var body struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -222,6 +270,11 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	if !h.loginLimiter.Allow(clientIP(r)) {
+		writeError(w, http.StatusTooManyRequests, "too many requests, please try again later")
+		return
+	}
+
 	var body struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
