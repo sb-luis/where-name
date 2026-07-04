@@ -98,6 +98,7 @@ func verifyPassword(password, encoded string) (bool, error) {
 const (
 	maxBodyBytesSmall = 4 * 1024    // 4 KB  — auth/small payloads
 	maxBodyBytesLarge = 1024 * 1024 // 1 MB — very geneour long practice games
+	maxPasswordBytes  = 256         // caps Argon2 hashing cost regardless of body size
 )
 
 func readBody(w http.ResponseWriter, r *http.Request, dst any) error {
@@ -171,8 +172,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "username must be 2–20 characters: letters, numbers, underscores only")
 		return
 	}
-	if len(body.Password) < 8 {
-		writeError(w, http.StatusUnprocessableEntity, "password must be at least 8 characters")
+	if len(body.Password) < 8 || len(body.Password) > maxPasswordBytes {
+		writeError(w, http.StatusUnprocessableEntity, "password must be 8-256 characters")
 		return
 	}
 
@@ -213,6 +214,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := readBody(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(body.Password) > maxPasswordBytes {
+		// No real password can exceed this — reject before Argon2 ever runs,
+		// same generic error as a wrong password so it leaks nothing.
+		writeError(w, http.StatusUnauthorized, "invalid username or password")
 		return
 	}
 
@@ -298,8 +305,8 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusUnprocessableEntity, "current_password is required to set a new password")
 			return
 		}
-		if len(*body.NewPassword) < 8 {
-			writeError(w, http.StatusUnprocessableEntity, "password must be at least 8 characters")
+		if len(*body.NewPassword) < 8 || len(*body.NewPassword) > maxPasswordBytes {
+			writeError(w, http.StatusUnprocessableEntity, "password must be 8-256 characters")
 			return
 		}
 		fresh, err := h.store.GetUserByID(r.Context(), user.ID)
