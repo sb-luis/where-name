@@ -48,7 +48,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetch('/api/auth/me')
       .then(r => r.ok ? r.json() as Promise<AuthUser> : null)
-      .then(data => setUser(data))
+      .then(data => {
+        if (data) identify(data.id, { signed_up_at: data.created_at })
+        setUser(data)
+      })
       .catch(() => setUser(null))
       .finally(() => setLoading(false))
   }, [])
