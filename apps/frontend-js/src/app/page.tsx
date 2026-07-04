@@ -44,6 +44,7 @@ export default function Page() {
   const handlePracticeConfirm = (timeLimitMs: number | null, continents: Continent[]) => {
     setShowPracticeModal(false)
     track(EVENTS.PRACTICE_STARTED, {
+      source: 'setup',
       time_limit_ms: timeLimitMs,
       continents,
       authenticated: !!user,

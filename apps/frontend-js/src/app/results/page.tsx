@@ -11,13 +11,15 @@ import { useGame } from '@/lib/game/GameContext'
 import { useGeoData } from '@/lib/geo/GeoDataContext'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { savePracticeGame } from '@/lib/game/api'
+import { track } from '@/lib/analytics/track'
+import { EVENTS } from '@/lib/analytics/events'
 import { LEVELS } from '@/lib/geo/lod'
 import type { GeoCollection } from '@/lib/geo/types'
 
 export default function ResultsPage() {
   const router              = useRouter()
   const { emitStatus }      = useSocket()
-  const { results, mode, elapsedMs, targets, startPracticeWithTargets } = useGame()
+  const { results, mode, elapsedMs, targets, practiceTimeLimitMs, startPracticeWithTargets } = useGame()
   const { loadCollection }  = useGeoData()
   const { user, loading: authLoading } = useAuth()
 
@@ -53,6 +55,12 @@ export default function ResultsPage() {
           geo={geo ?? undefined}
           onReturn={() => router.push('/')}
           onRetryFailed={(countries) => {
+            track(EVENTS.PRACTICE_STARTED, {
+              source: 'redemption',
+              time_limit_ms: practiceTimeLimitMs,
+              target_count: countries.length,
+              authenticated: !!user,
+            })
             flushSync(() => { startPracticeWithTargets(countries) })
             router.push('/practice')
           }}
