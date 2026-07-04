@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,8 +16,8 @@ import (
 	"github.com/sb-luis/where-name/apps/backend-go/ratelimit"
 	"github.com/sb-luis/where-name/apps/backend-go/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/store"
+	"github.com/sb-luis/where-name/apps/backend-go/utils"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/posthog/posthog-go"
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/time/rate"
@@ -77,17 +76,6 @@ func NewAuthHandler(s *store.Store) *AuthHandler {
 	return h
 }
 
-// clientIP returns the address to key rate limiting on.
-// Caddy resolves the real client IP itself
-// X-Forwarded-For is deliberately not used here: it's a hop-by-hop list that proxies append to
-// r.RemoteAddr is used as a fallback e.g. in local dev without Caddy in front.
-func clientIP(r *http.Request) string {
-	if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
-		return ip
-	}
-	return r.RemoteAddr
-}
-
 // --- Argon2id ---
 
 var argon2Params = struct {
@@ -139,9 +127,7 @@ func verifyPassword(password, encoded string) (bool, error) {
 // --- helpers ---
 
 const (
-	maxBodyBytesSmall = 4 * 1024    // 4 KB  — auth/small payloads
-	maxBodyBytesLarge = 1024 * 1024 // 1 MB — very geneour long practice games
-	maxPasswordBytes  = 256         // caps Argon2 hashing cost regardless of body size
+	maxPasswordBytes = 256 // caps Argon2 hashing cost regardless of body size
 )
 
 func validateUsername(username string) error {
@@ -156,31 +142,6 @@ func validatePassword(password string) error {
 		return fmt.Errorf("password must be 8-256 characters")
 	}
 	return nil
-}
-
-func readBody(w http.ResponseWriter, r *http.Request, dst any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytesSmall)
-	return json.NewDecoder(r.Body).Decode(dst)
-}
-
-func readBodyLarge(w http.ResponseWriter, r *http.Request, dst any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytesLarge)
-	return json.NewDecoder(r.Body).Decode(dst)
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
-}
-
-func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
-}
-
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 func setSessionCookie(w http.ResponseWriter, token string, expires time.Time) {
@@ -214,8 +175,8 @@ func userJSON(u store.User) map[string]any {
 // --- handlers ---
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	if !h.registerLimiter.Allow(clientIP(r)) {
-		writeError(w, http.StatusTooManyRequests, "too many requests, please try again later")
+	if !h.registerLimiter.Allow(utils.ClientIP(r)) {
+		utils.WriteError(w, http.StatusTooManyRequests, "too many requests, please try again later")
 		return
 	}
 
@@ -226,38 +187,38 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		// (e.g. "explore", "customize_practice", "practice_results").
 		AnalyticsContext string `json:"context"`
 	}
-	if err := readBody(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	if err := utils.ReadBody(w, r, &body); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 	if err := validateUsername(body.Username); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		utils.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 	if err := validatePassword(body.Password); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		utils.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 
 	hash, err := hashPassword(body.Password)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
 	user, err := h.store.CreateUser(r.Context(), body.Username, hash, randomPaletteColor())
 	if err != nil {
-		if isUniqueViolation(err) {
-			writeError(w, http.StatusConflict, "username already taken")
+		if utils.IsUniqueViolation(err) {
+			utils.WriteError(w, http.StatusConflict, "username already taken")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
 	sess, err := h.store.CreateSession(r.Context(), user.ID, sessionTTL)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
@@ -266,12 +227,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	analytics.Capture(analytics.DistinctID(user.ID), "signup_completed", posthog.NewProperties().
 		Set("context", body.AnalyticsContext))
 
-	writeJSON(w, http.StatusCreated, userJSON(user))
+	utils.WriteJSON(w, http.StatusCreated, userJSON(user))
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	if !h.loginLimiter.Allow(clientIP(r)) {
-		writeError(w, http.StatusTooManyRequests, "too many requests, please try again later")
+	if !h.loginLimiter.Allow(utils.ClientIP(r)) {
+		utils.WriteError(w, http.StatusTooManyRequests, "too many requests, please try again later")
 		return
 	}
 
@@ -279,41 +240,41 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
-	if err := readBody(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	if err := utils.ReadBody(w, r, &body); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 	if len(body.Password) > maxPasswordBytes {
 		// No real password can exceed this — reject before Argon2 ever runs,
 		// same generic error as a wrong password so it leaks nothing.
-		writeError(w, http.StatusUnauthorized, "invalid username or password")
+		utils.WriteError(w, http.StatusUnauthorized, "invalid username or password")
 		return
 	}
 
 	user, err := h.store.GetUserByUsername(r.Context(), body.Username)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusUnauthorized, "invalid username or password")
+		utils.WriteError(w, http.StatusUnauthorized, "invalid username or password")
 		return
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
 	ok, err := verifyPassword(body.Password, user.PasswordHash)
 	if err != nil || !ok {
-		writeError(w, http.StatusUnauthorized, "invalid username or password")
+		utils.WriteError(w, http.StatusUnauthorized, "invalid username or password")
 		return
 	}
 
 	sess, err := h.store.CreateSession(r.Context(), user.ID, sessionTTL)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
 	setSessionCookie(w, sess.ID, sess.ExpiresAt)
-	writeJSON(w, http.StatusOK, userJSON(user))
+	utils.WriteJSON(w, http.StatusOK, userJSON(user))
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -327,16 +288,16 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	user, ok := middleware.UserFromCtx(r.Context())
 	if !ok {
-		writeError(w, http.StatusUnauthorized, "not authenticated")
+		utils.WriteError(w, http.StatusUnauthorized, "not authenticated")
 		return
 	}
-	writeJSON(w, http.StatusOK, userJSON(*user))
+	utils.WriteJSON(w, http.StatusOK, userJSON(*user))
 }
 
 func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	user, ok := middleware.UserFromCtx(r.Context())
 	if !ok {
-		writeError(w, http.StatusUnauthorized, "not authenticated")
+		utils.WriteError(w, http.StatusUnauthorized, "not authenticated")
 		return
 	}
 
@@ -346,22 +307,22 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		NewPassword     *string `json:"new_password"`
 		CursorColor     *string `json:"cursor_color"`
 	}
-	if err := readBody(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	if err := utils.ReadBody(w, r, &body); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if body.Username != nil {
 		if err := validateUsername(*body.Username); err != nil {
-			writeError(w, http.StatusUnprocessableEntity, err.Error())
+			utils.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 		if err := h.store.UpdateUsername(r.Context(), user.ID, *body.Username); err != nil {
-			if isUniqueViolation(err) {
-				writeError(w, http.StatusConflict, "username already taken")
+			if utils.IsUniqueViolation(err) {
+				utils.WriteError(w, http.StatusConflict, "username already taken")
 				return
 			}
-			writeError(w, http.StatusInternalServerError, "internal error")
+			utils.WriteError(w, http.StatusInternalServerError, "internal error")
 			return
 		}
 		user.Username = *body.Username
@@ -369,45 +330,45 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 
 	if body.NewPassword != nil {
 		if body.CurrentPassword == nil {
-			writeError(w, http.StatusUnprocessableEntity, "current_password is required to set a new password")
+			utils.WriteError(w, http.StatusUnprocessableEntity, "current_password is required to set a new password")
 			return
 		}
 		if err := validatePassword(*body.NewPassword); err != nil {
-			writeError(w, http.StatusUnprocessableEntity, err.Error())
+			utils.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 		fresh, err := h.store.GetUserByID(r.Context(), user.ID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "internal error")
+			utils.WriteError(w, http.StatusInternalServerError, "internal error")
 			return
 		}
 		ok, err := verifyPassword(*body.CurrentPassword, fresh.PasswordHash)
 		if err != nil || !ok {
-			writeError(w, http.StatusUnauthorized, "current password is incorrect")
+			utils.WriteError(w, http.StatusUnauthorized, "current password is incorrect")
 			return
 		}
 		hash, err := hashPassword(*body.NewPassword)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "internal error")
+			utils.WriteError(w, http.StatusInternalServerError, "internal error")
 			return
 		}
 		if err := h.store.UpdatePasswordHash(r.Context(), user.ID, hash); err != nil {
-			writeError(w, http.StatusInternalServerError, "internal error")
+			utils.WriteError(w, http.StatusInternalServerError, "internal error")
 			return
 		}
 	}
 
 	if body.CursorColor != nil {
 		if !allowedColors[*body.CursorColor] {
-			writeError(w, http.StatusUnprocessableEntity, "invalid cursor color")
+			utils.WriteError(w, http.StatusUnprocessableEntity, "invalid cursor color")
 			return
 		}
 		if err := h.store.UpdateCursorColor(r.Context(), user.ID, *body.CursorColor); err != nil {
-			writeError(w, http.StatusInternalServerError, "internal error")
+			utils.WriteError(w, http.StatusInternalServerError, "internal error")
 			return
 		}
 		user.CursorColor = *body.CursorColor
 	}
 
-	writeJSON(w, http.StatusOK, userJSON(*user))
+	utils.WriteJSON(w, http.StatusOK, userJSON(*user))
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/sb-luis/where-name/apps/backend-go/analytics"
 	"github.com/sb-luis/where-name/apps/backend-go/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/store"
+	"github.com/sb-luis/where-name/apps/backend-go/utils"
 
 	"github.com/posthog/posthog-go"
 )
@@ -75,17 +76,17 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		SkipAnalytics bool         `json:"skip_analytics"`
 		Rounds        []roundInput `json:"rounds"`
 	}
-	if err := readBodyLarge(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	if err := utils.ReadBodyLarge(w, r, &body); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 	if err := validateVariant(body.Variant); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		utils.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 	rounds, correct, wrong, skipped, err := validateRounds(body.Rounds)
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		utils.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 
@@ -104,15 +105,15 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !authenticated {
-		writeJSON(w, http.StatusOK, map[string]any{"saved": false})
+		utils.WriteJSON(w, http.StatusOK, map[string]any{"saved": false})
 		return
 	}
 
 	game, err := h.store.CreatePracticeGame(r.Context(), user.ID, body.Variant, body.Completed, body.DurationMs, rounds)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, map[string]any{"id": game.ID, "saved": true})
+	utils.WriteJSON(w, http.StatusCreated, map[string]any{"id": game.ID, "saved": true})
 }
