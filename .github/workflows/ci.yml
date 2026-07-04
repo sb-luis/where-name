@@ -12,10 +12,11 @@ jobs:
       run:
         working-directory: apps/backend-go
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
         with:
           go-version-file: apps/backend-go/go.mod
+          cache-dependency-path: apps/backend-go/go.sum
       - run: go build ./...
       - run: go vet ./...
       - run: go test ./...
@@ -26,8 +27,8 @@ jobs:
       run:
         working-directory: apps/frontend-js
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
