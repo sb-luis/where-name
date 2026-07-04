@@ -2,6 +2,7 @@
 const ALLOWED_ORIGINS = new Set([
 	"https://where.name", // prod
 	"https://luis.earth", // prod
+	"https://staging.where.name", // staging
 	"http://localhost:3000", // dev
 ]);
 

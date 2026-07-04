@@ -10,6 +10,8 @@ if (enabled && key) {
     autocapture: false,
     capture_pageview: false, // we do it ourselves
     capture_pageleave: true,
+    // avoid leaking identity/session state between where.name and staging.where.name.
+    cross_subdomain_cookie: false,
   })
   // Attaches to every event posthog-js fires from here on
   // including $identify, $pageleave, etc. that don't go through track().
