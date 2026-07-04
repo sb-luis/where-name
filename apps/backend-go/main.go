@@ -43,7 +43,7 @@ func main() {
 
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		dsn = "postgres://wiw_user:wiw_password@localhost:5432/wiw_db?sslmode=disable"
+		dsn = "postgres://where_name_user:where_name_password@localhost:5432/where_name_db?sslmode=disable"
 	}
 
 	ctx := context.Background()

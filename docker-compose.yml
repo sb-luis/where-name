@@ -43,7 +43,7 @@ services:
       dockerfile: Dockerfile
     environment:
       - PORT=4000
-      - DATABASE_URL=postgres://wiw_user:wiw_password@postgres:5432/wiw_db?sslmode=disable
+      - DATABASE_URL=postgres://where_name_user:where_name_password@postgres:5432/where_name_db?sslmode=disable
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost
       - COOKIE_SECURE=false
       - POSTHOG_API_KEY=${POSTHOG_API_KEY}
@@ -73,9 +73,9 @@ services:
     image: postgres:16-alpine
     container_name: where-name-postgres
     environment:
-      POSTGRES_USER: wiw_user
-      POSTGRES_PASSWORD: wiw_password
-      POSTGRES_DB: wiw_db
+      POSTGRES_USER: where_name_user
+      POSTGRES_PASSWORD: where_name_password
+      POSTGRES_DB: where_name_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
