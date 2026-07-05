@@ -1,0 +1,50 @@
+name: DB Backup
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Add PostgreSQL apt repo
+        run: |
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+
+      - name: Install pg_dump and age
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client age
+
+      - name: Dump database
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          pg_dump -Fc --no-owner --no-acl "$BACKUP_DATABASE_URL" -f dump.pgdump
+          size=$(stat -c%s dump.pgdump)
+          if [ "$size" -lt 1024 ]; then
+            echo "Dump file is suspiciously small ($size bytes) — aborting."
+            exit 1
+          fi
+
+      - name: Encrypt dump
+        env:
+          BACKUP_AGE_PUBLIC_KEY: ${{ secrets.BACKUP_AGE_PUBLIC_KEY }}
+        run: |
+          age -r "$BACKUP_AGE_PUBLIC_KEY" -o dump.pgdump.age dump.pgdump
+          rm dump.pgdump
+
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          aws s3 cp dump.pgdump.age \
+            "s3://$R2_BUCKET/wherename-$(date -u +%F-%H%M%S).pgdump.age" \
+            --endpoint-url "https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com"
