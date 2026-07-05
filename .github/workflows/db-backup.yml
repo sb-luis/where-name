@@ -9,21 +9,17 @@ jobs:
   backup:
     runs-on: ubuntu-24.04
     steps:
-      - name: Add PostgreSQL apt repo
-        run: |
-          sudo apt-get install -y postgresql-common
-          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-
-      - name: Install pg_dump and age
+      - name: Install age
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client-18 age
+          sudo apt-get install -y age
 
       - name: Dump database
         env:
           BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
         run: |
-          pg_dump -Fc --no-owner --no-acl "$BACKUP_DATABASE_URL" -f dump.pgdump
+          docker run --rm -v "$PWD:/backup" postgres:18 \
+            pg_dump -Fc --no-owner --no-acl "$BACKUP_DATABASE_URL" -f /backup/dump.pgdump
           size=$(stat -c%s dump.pgdump)
           if [ "$size" -lt 1024 ]; then
             echo "Dump file is suspiciously small ($size bytes) — aborting."
