@@ -9,10 +9,10 @@ import (
 )
 
 func Register(mux *http.ServeMux, s *store.Store, hub *handlers.Hub, allowedOrigins []string) {
-	auth     := handlers.NewAuthHandler(s)
+	auth := handlers.NewAuthHandler(s)
 	practice := handlers.NewPracticeHandler(s)
-	stats    := handlers.NewStatsHandler(s)
-	ws       := handlers.NewWSHandler(hub, s, allowedOrigins)
+	stats := handlers.NewStatsHandler(s)
+	ws := handlers.NewWSHandler(hub, s, allowedOrigins)
 
 	authMiddleware := middleware.Auth(s)
 

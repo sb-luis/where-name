@@ -7,10 +7,10 @@ import (
 )
 
 type CountryStat struct {
-	Feature    string
-	Correct    int
-	Wrong      int
-	Skipped    int
+	Feature      string
+	Correct      int
+	Wrong        int
+	Skipped      int
 	AvgCorrectMs *int64
 }
 

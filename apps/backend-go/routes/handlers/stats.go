@@ -36,11 +36,11 @@ func (h *StatsHandler) GetPracticeStats(w http.ResponseWriter, r *http.Request) 
 	}
 
 	type countryStat struct {
-		Feature      string  `json:"feature"`
-		Correct      int     `json:"correct"`
-		Wrong        int     `json:"wrong"`
-		Skipped      int     `json:"skipped"`
-		AvgCorrectMs *int64  `json:"avg_correct_ms"`
+		Feature      string `json:"feature"`
+		Correct      int    `json:"correct"`
+		Wrong        int    `json:"wrong"`
+		Skipped      int    `json:"skipped"`
+		AvgCorrectMs *int64 `json:"avg_correct_ms"`
 	}
 
 	countries := make([]countryStat, len(stats.Countries))
