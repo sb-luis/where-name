@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/sb-luis/where-name/apps/backend-go/internal/palette"
 	"github.com/sb-luis/where-name/apps/backend-go/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/store"
 	"github.com/sb-luis/where-name/apps/backend-go/utils"
@@ -284,7 +285,7 @@ func (c *client) readPump(ctx context.Context) {
 			c.hub.broadcast(msgVisitorUpdatedAlias(c.id, &alias))
 
 		case "set_color":
-			if !allowedColors[msg.Color] {
+			if !palette.Allowed(msg.Color) {
 				continue
 			}
 			c.hub.updateVisitor(c, func(v *Visitor) { v.Color = msg.Color })
@@ -364,7 +365,7 @@ func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		color = user.CursorColor
 	} else {
 		idx := h.hub.colorIdx.Add(1) - 1
-		color = palette[idx%uint64(len(palette))]
+		color = palette.Pick(idx)
 	}
 
 	// Authenticated user already has an active connection: ask the new tab

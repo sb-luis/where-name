@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/sb-luis/where-name/apps/backend-go/analytics"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/palette"
 	"github.com/sb-luis/where-name/apps/backend-go/ratelimit"
 	"github.com/sb-luis/where-name/apps/backend-go/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/store"
@@ -29,14 +30,6 @@ var (
 	usernameRe    = regexp.MustCompile(`^[a-zA-Z0-9_]{2,20}$`)
 	secureCookies = os.Getenv("COOKIE_SECURE") == "true"
 )
-
-func randomPaletteColor() string {
-	b := make([]byte, 1)
-	if _, err := rand.Read(b); err != nil {
-		return palette[0]
-	}
-	return palette[int(b[0])%len(palette)]
-}
 
 // loginRate/registerRate cap credential and account-creation attempts per IP:
 // a small burst for legitimate retries (e.g. a mistyped password), throttled
@@ -206,7 +199,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.store.CreateUser(r.Context(), body.Username, hash, randomPaletteColor())
+	user, err := h.store.CreateUser(r.Context(), body.Username, hash, palette.Random())
 	if err != nil {
 		if utils.IsUniqueViolation(err) {
 			utils.WriteError(w, http.StatusConflict, "username already taken")
@@ -359,7 +352,7 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if body.CursorColor != nil {
-		if !allowedColors[*body.CursorColor] {
+		if !palette.Allowed(*body.CursorColor) {
 			utils.WriteError(w, http.StatusUnprocessableEntity, "invalid cursor color")
 			return
 		}
