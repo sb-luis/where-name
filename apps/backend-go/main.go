@@ -70,8 +70,19 @@ func main() {
 	mux := http.NewServeMux()
 	routes.Register(mux, s, hub, allowedOrigins, cookieSecure)
 
+	// slowloris protection. safe for /ws: hijack clears the conn deadline,
+	// and coder/websocket manages its own via context from there.
+	srv := &http.Server{
+		Addr:              ":" + port,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+
 	log.Printf("server on :%s (allowed origins: %v)", port, allowedOrigins)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }
