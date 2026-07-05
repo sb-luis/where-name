@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
@@ -165,6 +166,17 @@ func userJSON(u store.User) map[string]any {
 	return map[string]any{"id": u.ID, "username": u.Username, "color": u.CursorColor, "created_at": u.CreatedAt}
 }
 
+// ensureAllowedCursorColor persists user's replacement color if
+// palette.EnsureAllowed decided its stored one fell out of the palette.
+func ensureAllowedCursorColor(ctx context.Context, s *store.Store, user *store.User) error {
+	color, changed := palette.EnsureAllowed(user.CursorColor)
+	if !changed {
+		return nil
+	}
+	user.CursorColor = color
+	return s.UpdateCursorColor(ctx, user.ID, color)
+}
+
 // --- handlers ---
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -260,6 +272,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := ensureAllowedCursorColor(r.Context(), h.store, &user); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
 	sess, err := h.store.CreateSession(r.Context(), user.ID, sessionTTL)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, "internal error")
@@ -282,6 +299,10 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	user, ok := middleware.UserFromCtx(r.Context())
 	if !ok {
 		utils.WriteError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+	if err := ensureAllowedCursorColor(r.Context(), h.store, user); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 	utils.WriteJSON(w, http.StatusOK, userJSON(*user))

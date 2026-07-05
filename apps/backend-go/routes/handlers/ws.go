@@ -362,6 +362,9 @@ func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		authenticated = true
 		uid := user.ID
 		userID = &uid
+		if err := ensureAllowedCursorColor(r.Context(), h.store, user); err != nil {
+			log.Printf("ensure allowed cursor color: %v", err)
+		}
 		color = user.CursorColor
 	} else {
 		idx := h.hub.colorIdx.Add(1) - 1

@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/sb-luis/where-name/apps/backend-go/internal/palette"
 	"github.com/sb-luis/where-name/apps/backend-go/store"
 )
 
@@ -160,5 +162,20 @@ func TestUserJSON(t *testing.T) {
 	}
 	if _, exposed := got["password_hash"]; exposed {
 		t.Error("userJSON must never expose password_hash")
+	}
+}
+
+// --- ensureAllowedCursorColor ---
+
+func TestEnsureAllowedCursorColorNoopWhenAlreadyAllowed(t *testing.T) {
+	user := &store.User{ID: 1, CursorColor: palette.Random()}
+	original := user.CursorColor
+
+	// A nil store is safe here: an already-allowed color returns before s is touched.
+	if err := ensureAllowedCursorColor(context.Background(), nil, user); err != nil {
+		t.Fatalf("ensureAllowedCursorColor: %v", err)
+	}
+	if user.CursorColor != original {
+		t.Errorf("expected color to stay %q, got %q", original, user.CursorColor)
 	}
 }

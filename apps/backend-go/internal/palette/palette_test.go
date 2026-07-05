@@ -37,3 +37,25 @@ func TestAllowed(t *testing.T) {
 		t.Error("expected an unknown color to be rejected")
 	}
 }
+
+// --- EnsureAllowed ---
+
+func TestEnsureAllowedKeepsAnAllowedColor(t *testing.T) {
+	got, changed := EnsureAllowed(colors[0])
+	if changed {
+		t.Error("expected an already-allowed color to be left unchanged")
+	}
+	if got != colors[0] {
+		t.Errorf("expected %q to be returned as-is, got %q", colors[0], got)
+	}
+}
+
+func TestEnsureAllowedReplacesADisallowedColor(t *testing.T) {
+	got, changed := EnsureAllowed("#not-a-real-color")
+	if !changed {
+		t.Error("expected a disallowed color to be replaced")
+	}
+	if !Allowed(got) {
+		t.Errorf("expected replacement %q to be an allowed color", got)
+	}
+}

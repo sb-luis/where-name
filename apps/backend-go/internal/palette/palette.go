@@ -4,15 +4,11 @@ package palette
 
 import "crypto/rand"
 
-// Tailwind 500-weight colors — fixed saturation and lightness stepped across
-// the full hue wheel, so every color looks equally vivid.
+// Tailwind 500-weight colors, hand-picked for hue separation
 var colors = []string{
-	"#ef4444", "#f97316", "#f59e0b",
-	"#eab308", "#84cc16", "#22c55e",
-	"#10b981", "#14b8a6", "#06b6d4",
-	"#0ea5e9", "#3b82f6", "#6366f1",
-	"#8b5cf6", "#a855f7", "#d946ef",
-	"#ec4899", "#f43f5e", "#64748b",
+	"#ef4444", "#f97316", "#eab308",
+	"#22c55e", "#14b8a6", "#3b82f6",
+	"#8b5cf6", "#ec4899", "#64748b",
 }
 
 var allowed = func() map[string]bool {
@@ -40,4 +36,15 @@ func Pick(idx uint64) string {
 // Allowed reports whether color is one of the curated palette colors.
 func Allowed(color string) bool {
 	return allowed[color]
+}
+
+// EnsureAllowed returns color unchanged if it's still in the palette, or a
+// fresh Random replacement if it's not (e.g. the palette shrank after color
+// was assigned) — changed tells the caller whether the replacement needs to
+// be persisted.
+func EnsureAllowed(color string) (result string, changed bool) {
+	if Allowed(color) {
+		return color, false
+	}
+	return Random(), true
 }
