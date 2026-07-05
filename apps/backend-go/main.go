@@ -46,6 +46,8 @@ func main() {
 		dsn = "postgres://where_name_user:where_name_password@localhost:5432/where_name_db?sslmode=disable"
 	}
 
+	cookieSecure := os.Getenv("COOKIE_SECURE") == "true"
+
 	ctx := context.Background()
 
 	s, err := store.Open(ctx, dsn)
@@ -66,7 +68,7 @@ func main() {
 
 	hub := handlers.NewHub()
 	mux := http.NewServeMux()
-	routes.Register(mux, s, hub, allowedOrigins)
+	routes.Register(mux, s, hub, allowedOrigins, cookieSecure)
 
 	log.Printf("server on :%s (allowed origins: %v)", port, allowedOrigins)
 	if err := http.ListenAndServe(":"+port, mux); err != nil {

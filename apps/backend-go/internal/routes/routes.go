@@ -8,8 +8,8 @@ import (
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
 )
 
-func Register(mux *http.ServeMux, s *store.Store, hub *handlers.Hub, allowedOrigins []string) {
-	auth := handlers.NewAuthHandler(s)
+func Register(mux *http.ServeMux, s *store.Store, hub *handlers.Hub, allowedOrigins []string, cookieSecure bool) {
+	auth := handlers.NewAuthHandler(s, cookieSecure)
 	practice := handlers.NewPracticeHandler(s)
 	stats := handlers.NewStatsHandler(s)
 	ws := handlers.NewWSHandler(hub, s, allowedOrigins)

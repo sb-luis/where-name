@@ -112,8 +112,9 @@ func TestValidatePassword(t *testing.T) {
 func TestSetSessionCookie(t *testing.T) {
 	w := httptest.NewRecorder()
 	expires := time.Now().Add(sessionTTL)
+	h := &AuthHandler{cookieSecure: true}
 
-	setSessionCookie(w, "test-token", expires)
+	h.setSessionCookie(w, "test-token", expires)
 
 	cookies := w.Result().Cookies()
 	if len(cookies) != 1 {
@@ -129,12 +130,16 @@ func TestSetSessionCookie(t *testing.T) {
 	if c.SameSite != http.SameSiteLaxMode {
 		t.Errorf("expected SameSite=Lax, got %v", c.SameSite)
 	}
+	if !c.Secure {
+		t.Error("expected Secure to follow h.cookieSecure=true")
+	}
 }
 
 func TestClearSessionCookie(t *testing.T) {
 	w := httptest.NewRecorder()
+	h := &AuthHandler{cookieSecure: false}
 
-	clearSessionCookie(w)
+	h.clearSessionCookie(w)
 
 	cookies := w.Result().Cookies()
 	if len(cookies) != 1 {
@@ -146,6 +151,9 @@ func TestClearSessionCookie(t *testing.T) {
 	}
 	if c.MaxAge != -1 {
 		t.Errorf("expected MaxAge=-1 to force deletion, got %d", c.MaxAge)
+	}
+	if c.Secure {
+		t.Error("expected Secure to follow h.cookieSecure=false")
 	}
 }
 

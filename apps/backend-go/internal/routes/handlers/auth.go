@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -27,10 +26,7 @@ import (
 
 const sessionTTL = 30 * 24 * time.Hour
 
-var (
-	usernameRe    = regexp.MustCompile(`^[a-zA-Z0-9_]{2,20}$`)
-	secureCookies = os.Getenv("COOKIE_SECURE") == "true"
-)
+var usernameRe = regexp.MustCompile(`^[a-zA-Z0-9_]{2,20}$`)
 
 // loginRate/registerRate cap credential and account-creation attempts per IP:
 // a small burst for legitimate retries (e.g. a mistyped password), throttled
@@ -49,13 +45,15 @@ type AuthHandler struct {
 	store           *store.Store
 	loginLimiter    *ratelimit.Limiter
 	registerLimiter *ratelimit.Limiter
+	cookieSecure    bool
 }
 
-func NewAuthHandler(s *store.Store) *AuthHandler {
+func NewAuthHandler(s *store.Store, cookieSecure bool) *AuthHandler {
 	h := &AuthHandler{
 		store:           s,
 		loginLimiter:    ratelimit.New(authRateLimit, authRateBurst, authRateIdleTTL),
 		registerLimiter: ratelimit.New(authRateLimit, authRateBurst, authRateIdleTTL),
+		cookieSecure:    cookieSecure,
 	}
 
 	go func() {
@@ -138,26 +136,26 @@ func validatePassword(password string) error {
 	return nil
 }
 
-func setSessionCookie(w http.ResponseWriter, token string, expires time.Time) {
+func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, token string, expires time.Time) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session",
 		Value:    token,
 		Path:     "/",
 		Expires:  expires,
 		HttpOnly: true,
-		Secure:   secureCookies,
+		Secure:   h.cookieSecure,
 		SameSite: http.SameSiteLaxMode,
 	})
 }
 
-func clearSessionCookie(w http.ResponseWriter) {
+func (h *AuthHandler) clearSessionCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session",
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   secureCookies,
+		Secure:   h.cookieSecure,
 		SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -227,7 +225,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setSessionCookie(w, sess.ID, sess.ExpiresAt)
+	h.setSessionCookie(w, sess.ID, sess.ExpiresAt)
 
 	analytics.Capture(analytics.DistinctID(user.ID), "signup_completed", posthog.NewProperties().
 		Set("context", body.AnalyticsContext))
@@ -283,7 +281,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setSessionCookie(w, sess.ID, sess.ExpiresAt)
+	h.setSessionCookie(w, sess.ID, sess.ExpiresAt)
 	utils.WriteJSON(w, http.StatusOK, userJSON(user))
 }
 
@@ -291,7 +289,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie("session"); err == nil {
 		h.store.DeleteSession(r.Context(), cookie.Value)
 	}
-	clearSessionCookie(w)
+	h.clearSessionCookie(w)
 	w.WriteHeader(http.StatusNoContent)
 }
 
