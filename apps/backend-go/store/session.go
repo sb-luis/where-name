@@ -2,13 +2,13 @@ package store
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/sb-luis/where-name/apps/backend-go/utils"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -20,16 +20,9 @@ type Session struct {
 	ExpiresAt time.Time
 }
 
-func newToken() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
-}
-
 func (s *Store) CreateSession(ctx context.Context, userID int64, ttl time.Duration) (Session, error) {
-	token, err := newToken()
+	// 32 bytes (256 bits) so the session token is infeasible to guess or brute-force.
+	token, err := utils.RandomHex(32)
 	if err != nil {
 		return Session{}, fmt.Errorf("generate token: %w", err)
 	}

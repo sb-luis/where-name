@@ -2,8 +2,6 @@ package handlers
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"log"
 	"math"
@@ -16,6 +14,7 @@ import (
 
 	"github.com/sb-luis/where-name/apps/backend-go/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/store"
+	"github.com/sb-luis/where-name/apps/backend-go/utils"
 
 	"github.com/coder/websocket"
 )
@@ -337,14 +336,6 @@ func NewWSHandler(hub *Hub, s *store.Store, allowedOrigins []string) *WSHandler 
 	return &WSHandler{hub: hub, store: s, allowedOrigins: allowedOrigins}
 }
 
-func newID() (string, error) {
-	b := make([]byte, 8)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
-}
-
 func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		OriginPatterns: h.allowedOrigins,
@@ -354,7 +345,7 @@ func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := newID()
+	id, err := utils.RandomHex(8)
 	if err != nil {
 		log.Printf("generate visitor id: %v", err)
 		conn.Close(websocket.StatusInternalError, "")
