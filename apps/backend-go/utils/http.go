@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -40,4 +41,11 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 
 func WriteError(w http.ResponseWriter, status int, msg string) {
 	WriteJSON(w, status, map[string]string{"error": msg})
+}
+
+// WriteInternalError logs err — which is never safe to expose to the client —
+// under context (e.g. "create user"), then writes a generic 500 in its place.
+func WriteInternalError(w http.ResponseWriter, err error, context string) {
+	log.Printf("%s: %v", context, err)
+	WriteError(w, http.StatusInternalServerError, "internal error")
 }

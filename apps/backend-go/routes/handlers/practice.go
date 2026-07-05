@@ -111,7 +111,7 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 
 	game, err := h.store.CreatePracticeGame(r.Context(), user.ID, body.Variant, body.Completed, body.DurationMs, rounds)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteInternalError(w, err, "create practice game")
 		return
 	}
 

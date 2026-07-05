@@ -31,7 +31,7 @@ func (h *StatsHandler) GetPracticeStats(w http.ResponseWriter, r *http.Request) 
 
 	stats, err := h.store.GetPracticeStats(r.Context(), user.ID, variant)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteInternalError(w, err, "get practice stats")
 		return
 	}
 
@@ -70,7 +70,7 @@ func (h *StatsHandler) GetProfileStats(w http.ResponseWriter, r *http.Request) {
 
 	stats, err := h.store.GetProfileStats(r.Context(), user.ID)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteInternalError(w, err, "get profile stats")
 		return
 	}
 

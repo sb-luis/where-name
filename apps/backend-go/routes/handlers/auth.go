@@ -207,7 +207,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := hashPassword(body.Password)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteInternalError(w, err, "hash password")
 		return
 	}
 
@@ -217,13 +217,13 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 			utils.WriteError(w, http.StatusConflict, "username already taken")
 			return
 		}
-		utils.WriteError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteInternalError(w, err, "create user")
 		return
 	}
 
 	sess, err := h.store.CreateSession(r.Context(), user.ID, sessionTTL)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteInternalError(w, err, "create session")
 		return
 	}
 
@@ -262,7 +262,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteInternalError(w, err, "get user by username")
 		return
 	}
 
@@ -273,13 +273,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := ensureAllowedCursorColor(r.Context(), h.store, &user); err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteInternalError(w, err, "ensure allowed cursor color")
 		return
 	}
 
 	sess, err := h.store.CreateSession(r.Context(), user.ID, sessionTTL)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteInternalError(w, err, "create session")
 		return
 	}
 
@@ -302,7 +302,7 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := ensureAllowedCursorColor(r.Context(), h.store, user); err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, "internal error")
+		utils.WriteInternalError(w, err, "ensure allowed cursor color")
 		return
 	}
 	utils.WriteJSON(w, http.StatusOK, userJSON(*user))
@@ -336,7 +336,7 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 				utils.WriteError(w, http.StatusConflict, "username already taken")
 				return
 			}
-			utils.WriteError(w, http.StatusInternalServerError, "internal error")
+			utils.WriteInternalError(w, err, "update username")
 			return
 		}
 		user.Username = *body.Username
@@ -353,7 +353,7 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		}
 		fresh, err := h.store.GetUserByID(r.Context(), user.ID)
 		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, "internal error")
+			utils.WriteInternalError(w, err, "get user by id")
 			return
 		}
 		ok, err := verifyPassword(*body.CurrentPassword, fresh.PasswordHash)
@@ -363,11 +363,11 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		}
 		hash, err := hashPassword(*body.NewPassword)
 		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, "internal error")
+			utils.WriteInternalError(w, err, "hash password")
 			return
 		}
 		if err := h.store.UpdatePasswordHash(r.Context(), user.ID, hash); err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, "internal error")
+			utils.WriteInternalError(w, err, "update password hash")
 			return
 		}
 	}
@@ -378,7 +378,7 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := h.store.UpdateCursorColor(r.Context(), user.ID, *body.CursorColor); err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, "internal error")
+			utils.WriteInternalError(w, err, "update cursor color")
 			return
 		}
 		user.CursorColor = *body.CursorColor
