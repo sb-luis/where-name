@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/sb-luis/where-name/apps/backend-go/internal/palette"
-	"github.com/sb-luis/where-name/apps/backend-go/store"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
 )
 
 // --- hashPassword / verifyPassword ---

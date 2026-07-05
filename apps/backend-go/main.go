@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/sb-luis/where-name/apps/backend-go/analytics"
-	"github.com/sb-luis/where-name/apps/backend-go/routes"
-	"github.com/sb-luis/where-name/apps/backend-go/routes/handlers"
-	"github.com/sb-luis/where-name/apps/backend-go/store"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/analytics"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/routes"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/handlers"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
 )
 
 func main() {

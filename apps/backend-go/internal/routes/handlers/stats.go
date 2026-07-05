@@ -3,9 +3,9 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/sb-luis/where-name/apps/backend-go/routes/middleware"
-	"github.com/sb-luis/where-name/apps/backend-go/store"
-	"github.com/sb-luis/where-name/apps/backend-go/utils"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/utils"
 )
 
 type StatsHandler struct {

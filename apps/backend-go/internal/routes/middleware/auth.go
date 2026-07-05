@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/sb-luis/where-name/apps/backend-go/store"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
 )
 
 type contextKey struct{}

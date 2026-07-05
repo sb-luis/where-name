@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/sb-luis/where-name/apps/backend-go/utils"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/utils"
 )
 
 var ErrNotFound = errors.New("not found")
