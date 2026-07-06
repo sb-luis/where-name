@@ -14,6 +14,8 @@ import type { RoundResult } from './types'
 
 export interface LatLng { lat: number; lng: number }
 
+export interface StreakInfo { current: number; longest: number }
+
 interface GameContextValue {
   countryNames:           string[]
   targets:                string[]
@@ -21,11 +23,13 @@ interface GameContextValue {
   mode:                   'timed' | 'practice'
   elapsedMs:              number | null
   practiceTimeLimitMs:    number | null
+  streakInfo:             StreakInfo | null
   startGame:              () => void
   startPractice:          (timeLimitMs: number | null, continents?: readonly string[]) => void
   startPracticeWithTargets: (names: string[]) => void
   setResults:             (results: RoundResult[]) => void
   setElapsedMs:           (ms: number | null) => void
+  setStreakInfo:          (info: StreakInfo | null) => void
   cameraOrientationRef:   React.MutableRefObject<LatLng | null>
 }
 
@@ -39,6 +43,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [mode, setMode]                       = useState<'timed' | 'practice'>('timed')
   const [elapsedMs, setElapsedMs]             = useState<number | null>(null)
   const [practiceTimeLimitMs, setPracticeTimeLimitMs] = useState<number | null>(null)
+  const [streakInfo, setStreakInfo]           = useState<StreakInfo | null>(null)
   const cameraOrientationRef                  = useRef<LatLng | null>(null)
 
   const startGame = useCallback(() => {
@@ -68,7 +73,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <GameContext.Provider value={{ countryNames, targets, results, mode, elapsedMs, practiceTimeLimitMs, startGame, startPractice, startPracticeWithTargets, setResults, setElapsedMs, cameraOrientationRef }}>
+    <GameContext.Provider value={{ countryNames, targets, results, mode, elapsedMs, practiceTimeLimitMs, streakInfo, startGame, startPractice, startPracticeWithTargets, setResults, setElapsedMs, setStreakInfo, cameraOrientationRef }}>
       {children}
     </GameContext.Provider>
   )

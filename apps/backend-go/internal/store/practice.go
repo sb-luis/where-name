@@ -33,6 +33,24 @@ type CreatePracticeRoundParams struct {
 	DurationMs int64
 }
 
+// HasPlayedToday reports whether the user already has a practice game recorded
+// today (UTC). Call this before CreatePracticeGame — once the new game is
+// inserted, "today" trivially always has a row.
+func (s *Store) HasPlayedToday(ctx context.Context, userID int64) (bool, error) {
+	var exists bool
+	err := s.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM practice_games
+			WHERE user_id = $1
+			AND (played_at AT TIME ZONE 'UTC')::date = (now() AT TIME ZONE 'UTC')::date
+		)
+	`, userID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check play history: %w", err)
+	}
+	return exists, nil
+}
+
 func (s *Store) CreatePracticeGame(ctx context.Context, userID int64, variant string, completed bool, durationMs int64, rounds []CreatePracticeRoundParams) (PracticeGame, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {

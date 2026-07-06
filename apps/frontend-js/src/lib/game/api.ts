@@ -1,12 +1,19 @@
 import type { RoundResult } from './types'
 import { getDistinctId } from '@/lib/analytics/track'
 
+export interface SavePracticeGameResult {
+  saved: boolean
+  currentStreak?: number
+  longestStreak?: number
+  isFirstGameToday?: boolean
+}
+
 export async function savePracticeGame(
   results: RoundResult[],
   elapsedMs: number,
   completed: boolean,
   opts: { skipAnalytics?: boolean } = {},
-) {
+): Promise<SavePracticeGameResult> {
   const res = await fetch('/api/practice/games', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -26,4 +33,11 @@ export async function savePracticeGame(
     }),
   })
   if (!res.ok) throw new Error('Failed to save practice game')
+  const data = await res.json()
+  return {
+    saved:             data.saved,
+    currentStreak:     data.current_streak,
+    longestStreak:     data.longest_streak,
+    isFirstGameToday:  data.is_first_game_today,
+  }
 }

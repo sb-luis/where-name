@@ -13,7 +13,7 @@ export default function PracticePage() {
   const router                                = useRouter()
   const { emitCursorMove, emitStatus }        = useSocket()
   const { cursors }                           = usePresence()
-  const { targets, setResults, setElapsedMs, cameraOrientationRef, practiceTimeLimitMs } = useGame()
+  const { targets, setResults, setElapsedMs, setStreakInfo, cameraOrientationRef, practiceTimeLimitMs } = useGame()
 
   useEffect(() => { emitStatus('practice') }, [emitStatus])
 
@@ -47,14 +47,17 @@ export default function PracticePage() {
           return
         }
         const completed = results.length === targets.length
-        if (elapsedMs != null) {
-          await savePracticeGame(results, elapsedMs, completed).catch(() => {})
-        }
+        const saved = elapsedMs != null
+          ? await savePracticeGame(results, elapsedMs, completed).catch(() => null)
+          : null
         flushSync(() => {
           setResults(results)
           setElapsedMs(elapsedMs ?? null)
+          if (saved?.isFirstGameToday) {
+            setStreakInfo({ current: saved.currentStreak ?? 0, longest: saved.longestStreak ?? 0 })
+          }
         })
-        router.push('/results')
+        router.push(saved?.isFirstGameToday ? '/streak' : '/results')
       }}
     />
   )

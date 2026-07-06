@@ -109,11 +109,27 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	alreadyPlayedToday, err := h.store.HasPlayedToday(r.Context(), user.ID)
+	if err != nil {
+		utils.WriteInternalError(w, err, "check play history")
+		return
+	}
+
 	game, err := h.store.CreatePracticeGame(r.Context(), user.ID, body.Variant, body.Completed, body.DurationMs, rounds)
 	if err != nil {
 		utils.WriteInternalError(w, err, "create practice game")
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusCreated, map[string]any{"id": game.ID, "saved": true})
+	resp := map[string]any{"id": game.ID, "saved": true}
+
+	// Streak fields are best-effort: the game is already saved above, so a
+	// failure here shouldn't fail the whole request, just skip the celebration.
+	if profileStats, err := h.store.GetProfileStats(r.Context(), user.ID); err == nil {
+		resp["current_streak"] = profileStats.CurrentStreak
+		resp["longest_streak"] = profileStats.LongestStreak
+		resp["is_first_game_today"] = !alreadyPlayedToday
+	}
+
+	utils.WriteJSON(w, http.StatusCreated, resp)
 }
