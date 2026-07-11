@@ -28,6 +28,7 @@ services:
         NEXT_PUBLIC_POSTHOG_KEY: ${POSTHOG_API_KEY}
         NEXT_PUBLIC_POSTHOG_ENABLED: ${POSTHOG_ENABLED}
         NEXT_PUBLIC_APP_ENV: ${APP_ENV}
+    restart: unless-stopped
     environment:
       - PORT=3000
     ports:
@@ -40,6 +41,7 @@ services:
     build:
       context: ./apps/backend-go
       dockerfile: Dockerfile
+    restart: unless-stopped
     environment:
       - PORT=4000
       - DATABASE_URL=postgres://where_name_user:where_name_password@postgres:5432/where_name_db?sslmode=disable
@@ -52,11 +54,13 @@ services:
     ports:
       - '4000:4000'
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   postgres:
     image: postgres:16-alpine
     container_name: where-name-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: where_name_user
       POSTGRES_PASSWORD: where_name_password
@@ -65,6 +69,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U where_name_user -d where_name_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
