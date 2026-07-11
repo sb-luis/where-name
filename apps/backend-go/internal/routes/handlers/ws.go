@@ -18,6 +18,7 @@ import (
 	"github.com/sb-luis/where-name/apps/backend-go/internal/utils"
 
 	"github.com/coder/websocket"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -25,7 +26,31 @@ const (
 	idleTimeout     = 5 * time.Minute
 	pingTimeout     = 10 * time.Second
 	takeoverTimeout = 30 * time.Second
+
+	// Per-connection inbound message throttle: ~15 msg/s, burst 30.
+	wsMsgRate  = rate.Limit(15)
+	wsMsgBurst = 30
 )
+
+var (
+	aliasDisallowedChars = regexp.MustCompile(`[^a-z-]`)
+	aliasRepeatedDashes  = regexp.MustCompile(`-{2,}`)
+)
+
+// sanitizeAlias lowercases raw, strips characters outside [a-z-], collapses
+// repeated dashes, trims leading/trailing dashes, and truncates to 20 runes.
+// Returns "" if nothing usable remains.
+func sanitizeAlias(raw string) string {
+	alias := aliasDisallowedChars.ReplaceAllString(strings.ToLower(strings.TrimSpace(raw)), "")
+	alias = aliasRepeatedDashes.ReplaceAllString(strings.Trim(alias, "-"), "-")
+	if alias == "" {
+		return ""
+	}
+	if rs := []rune(alias); len(rs) > 20 {
+		alias = string(rs[:20])
+	}
+	return alias
+}
 
 // Mirrors the frontend UserStatus union (src/lib/multiplayer/types.ts).
 var allowedStatuses = map[string]bool{
@@ -53,6 +78,15 @@ type client struct {
 	send    chan []byte
 	visitor *Visitor
 	hub     *Hub
+	limiter *rate.Limiter // per-connection inbound message throttle
+}
+
+// allowMsg reports whether an inbound message arriving at now is allowed
+// under the per-connection rate limit, consuming a token if so. Takes an
+// explicit time (rather than calling time.Now() internally) so tests can
+// drive it deterministically without sleeping.
+func (c *client) allowMsg(now time.Time) bool {
+	return c.limiter.AllowN(now, 1)
 }
 
 // Hub owns all active connections and the shared visitor state.
@@ -156,17 +190,16 @@ func msgInit(self *Visitor, visitors []Visitor) []byte {
 	}{"init", *self, visitors})
 }
 
-func msgDuplicateSession() []byte {
+// msgType builds a bare {"type": t} message.
+func msgType(t string) []byte {
 	return enc(struct {
 		Type string `json:"type"`
-	}{"duplicate_session"})
+	}{t})
 }
 
-func msgKicked() []byte {
-	return enc(struct {
-		Type string `json:"type"`
-	}{"kicked"})
-}
+func msgDuplicateSession() []byte { return msgType("duplicate_session") }
+
+func msgKicked() []byte { return msgType("kicked") }
 
 func msgVisitorJoined(v Visitor) []byte {
 	return enc(struct {
@@ -266,6 +299,10 @@ func (c *client) readPump(ctx context.Context) {
 			return
 		}
 
+		if !c.allowMsg(time.Now()) {
+			continue // drop: this connection is over its inbound rate limit
+		}
+
 		var msg incomingMsg
 		if err := json.Unmarshal(data, &msg); err != nil {
 			continue
@@ -273,13 +310,9 @@ func (c *client) readPump(ctx context.Context) {
 
 		switch msg.Type {
 		case "set_alias":
-			alias := regexp.MustCompile(`[^a-z-]`).ReplaceAllString(strings.ToLower(strings.TrimSpace(msg.Alias)), "")
-			alias = regexp.MustCompile(`-{2,}`).ReplaceAllString(strings.Trim(alias, "-"), "-")
+			alias := sanitizeAlias(msg.Alias)
 			if alias == "" {
 				continue
-			}
-			if rs := []rune(alias); len(rs) > 20 {
-				alias = string(rs[:20])
 			}
 			c.hub.updateVisitor(c, func(v *Visitor) { v.Alias = &alias })
 			c.hub.broadcast(msgVisitorUpdatedAlias(c.id, &alias))
@@ -426,6 +459,7 @@ func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		send:    make(chan []byte, 64),
 		visitor: visitor,
 		hub:     h.hub,
+		limiter: rate.NewLimiter(wsMsgRate, wsMsgBurst),
 	}
 	h.hub.register(c)
 
