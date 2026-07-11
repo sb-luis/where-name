@@ -6,8 +6,9 @@ Guess the country geography game with real-time multiplayer presence.
 
 - **Frontend** — Next.js (`apps/frontend-js`)
 - **Backend** — Go (`apps/backend-go`)
-- **Reverse proxy** — Caddy (`apps/reverse-proxy`)
+- **Reverse proxy** — Caddy (`apps/reverse-proxy`) — routes `/api/*` and `/ws` to the Go backend, `/ingest/*` to PostHog EU proxy, and all other traffic to the Next.js frontend; TLS termination disabled for local dev
 - **Database** — PostgreSQL
+- **CDN** — Cloudflare Worker (`infra/natural-earth-cdn`) — serves GeoJSON tiles from an R2 bucket with CORS allowlist
 
 ## Running locally
 
