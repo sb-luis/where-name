@@ -46,7 +46,7 @@ func main() {
 		dsn = "postgres://where_name_user:where_name_password@localhost:5432/where_name_db?sslmode=disable"
 	}
 
-	cookieSecure := os.Getenv("COOKIE_SECURE") == "true"
+	cookieSecure := os.Getenv("COOKIE_SECURE") != "false"
 
 	ctx := context.Background()
 
