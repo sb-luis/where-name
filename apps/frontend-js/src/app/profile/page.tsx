@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Alert } from '@/components/ui/Alert'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { StatCards } from '@/components/stats/StatCards'
 import { WorldMap } from '@/components/stats/WorldMap'
@@ -91,6 +92,7 @@ export default function ProfilePage() {
   const [practiceStats, setPracticeStats] = useState<PracticeStats | null>(null)
   const [profileStats, setProfileStats]   = useState<ProfileStats | null>(null)
   const [geo, setGeo] = useState<GeoCollection | null>(null)
+  const [statsError, setStatsError] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) router.replace('/')
@@ -98,15 +100,17 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!user) return
-    loadCollection(LEVELS[0].url).then(setGeo).catch(() => {})
-    fetch(`/api/practice/stats?variant=${encodeURIComponent(VARIANT)}`)
-      .then(r => r.ok ? r.json() as Promise<PracticeStats> : Promise.reject())
-      .then(setPracticeStats)
-      .catch(() => {})
-    fetch('/api/stats/profile')
-      .then(r => r.ok ? r.json() as Promise<ProfileStats> : Promise.reject())
-      .then(setProfileStats)
-      .catch(() => {})
+    Promise.allSettled([
+      loadCollection(LEVELS[0].url).then(setGeo),
+      fetch(`/api/practice/stats?variant=${encodeURIComponent(VARIANT)}`)
+        .then(r => r.ok ? r.json() as Promise<PracticeStats> : Promise.reject())
+        .then(setPracticeStats),
+      fetch('/api/stats/profile')
+        .then(r => r.ok ? r.json() as Promise<ProfileStats> : Promise.reject())
+        .then(setProfileStats),
+    ]).then(results => {
+      setStatsError(results.some(r => r.status === 'rejected'))
+    })
   }, [user, loadCollection])
 
   const [openSection, setOpenSection] = useState<'alias' | 'password' | 'cursor' | null>(null)
@@ -200,6 +204,10 @@ export default function ProfilePage() {
             log out
           </button>
         </div>
+
+        {statsError && (
+          <Alert>Couldn&apos;t load your stats. Try refreshing the page.</Alert>
+        )}
 
         <div className="space-y-3">
 
