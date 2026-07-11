@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, type ReactNode } from 'react'
 import { identify, resetIdentity } from '@/lib/analytics/track'
 
 export interface AuthUser {
@@ -104,8 +104,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data as unknown as AuthUser)
   }, [])
 
+  const value = useMemo<AuthContextValue>(
+    () => ({ user, loading, login, register, logout, updateProfile }),
+    [user, loading, login, register, logout, updateProfile],
+  )
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateProfile }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )

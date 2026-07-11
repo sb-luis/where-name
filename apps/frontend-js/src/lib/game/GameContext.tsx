@@ -72,8 +72,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setResults(null)
   }, [])
 
+  const value = useMemo<GameContextValue>(() => ({
+    countryNames, targets, results, mode, elapsedMs, practiceTimeLimitMs, streakInfo,
+    startGame, startPractice, startPracticeWithTargets, setResults, setElapsedMs, setStreakInfo,
+    cameraOrientationRef,
+  }), [
+    countryNames, targets, results, mode, elapsedMs, practiceTimeLimitMs, streakInfo,
+    startGame, startPractice, startPracticeWithTargets,
+  ])
+
   return (
-    <GameContext.Provider value={{ countryNames, targets, results, mode, elapsedMs, practiceTimeLimitMs, streakInfo, startGame, startPractice, startPracticeWithTargets, setResults, setElapsedMs, setStreakInfo, cameraOrientationRef }}>
+    <GameContext.Provider value={value}>
       {children}
     </GameContext.Provider>
   )

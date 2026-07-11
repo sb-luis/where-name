@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useMemo, useState, useCallback, type ReactNode } from 'react'
 import { fetchGeo } from './fetch'
 import type { GeoCollection } from './types'
 
@@ -25,8 +25,13 @@ export function GeoDataProvider({ children }: { children: ReactNode }) {
     return data
   }, [])
 
+  const value = useMemo<ContextValue>(
+    () => ({ collections, loadCollection }),
+    [collections, loadCollection],
+  )
+
   return (
-    <GeoDataContext.Provider value={{ collections, loadCollection }}>
+    <GeoDataContext.Provider value={value}>
       {children}
     </GeoDataContext.Provider>
   )

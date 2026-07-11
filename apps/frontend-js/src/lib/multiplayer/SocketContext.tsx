@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useCallback,
@@ -241,12 +242,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     send({ type: 'set_status', status })
   }, [send])
 
+  const value = useMemo<SocketContextValue>(() => ({
+    self, visitors, connected,
+    sessionInactive, continueHere,
+    setAlias, setColor, emitCursorMove, emitStatus,
+  }), [
+    self, visitors, connected,
+    sessionInactive, continueHere,
+    setAlias, setColor, emitCursorMove, emitStatus,
+  ])
+
   return (
-    <SocketContext.Provider value={{
-      self, visitors, connected,
-      sessionInactive, continueHere,
-      setAlias, setColor, emitCursorMove, emitStatus,
-    }}>
+    <SocketContext.Provider value={value}>
       {children}
     </SocketContext.Provider>
   )
