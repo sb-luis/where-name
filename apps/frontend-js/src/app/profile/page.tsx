@@ -10,6 +10,7 @@ import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { StatCards } from '@/components/stats/StatCards'
 import { WorldMap } from '@/components/stats/WorldMap'
 import { AchievementBadge } from '@/components/ui/AchievementBadge'
+import { AchievementDetails } from '@/components/ui/AchievementDetails'
 import { useGeoData } from '@/lib/geo/GeoDataContext'
 import { useAchievements } from '@/lib/achievements/useAchievements'
 import type { Achievement } from '@/lib/achievements/types'
@@ -106,6 +107,7 @@ export default function ProfilePage() {
   const [geo, setGeo] = useState<GeoCollection | null>(null)
   const [statsError, setStatsError] = useState(false)
   const { data: achievementsData } = useAchievements(!!user)
+  const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null)
 
   useEffect(() => {
     if (!loading && !user) router.replace('/')
@@ -343,11 +345,19 @@ export default function ProfilePage() {
                   label: 'unlocked',
                   value: `${achievementsData.achievements.filter(a => a.unlocked_at).length} / ${achievementsData.achievements.length}`,
                 }]} />
+                <AchievementDetails achievement={selectedAchievement} />
                 {Object.entries(groupByContinent(achievementsData.achievements)).map(([group, items]) => (
                   <div key={group} className="space-y-2">
                     <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">{group}</p>
                     <div className="grid grid-cols-3 gap-2">
-                      {items.map(a => <AchievementBadge key={a.slug} achievement={a} />)}
+                      {items.map(a => (
+                        <AchievementBadge
+                          key={a.slug}
+                          achievement={a}
+                          selected={selectedAchievement?.slug === a.slug}
+                          onSelect={sel => setSelectedAchievement(prev => prev?.slug === sel.slug ? null : sel)}
+                        />
+                      ))}
                     </div>
                   </div>
                 ))}
