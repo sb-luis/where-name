@@ -1,10 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"net/http"
 
+	"github.com/sb-luis/where-name/apps/backend-go/internal/achievements"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/analytics"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/geo"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/utils"
@@ -29,8 +33,8 @@ type roundInput struct {
 }
 
 func validateVariant(variant string) error {
-	if variant == "" {
-		return fmt.Errorf("variant is required")
+	if _, ok := geo.DifficultyForVariant(variant); !ok {
+		return fmt.Errorf("variant must be one of the known map variants")
 	}
 	return nil
 }
@@ -109,6 +113,15 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	difficulty, _ := geo.DifficultyForVariant(body.Variant)
+
+	if difficulty != "easy" {
+		if err := h.checkDifficultyUnlocked(r.Context(), user.ID, difficulty, body.Rounds); err != nil {
+			utils.WriteError(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
+	}
+
 	alreadyPlayedToday, err := h.store.HasPlayedToday(r.Context(), user.ID)
 	if err != nil {
 		utils.WriteInternalError(w, err, "check play history")
@@ -131,5 +144,57 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		resp["is_first_game_today"] = !alreadyPlayedToday
 	}
 
+	// Achievement awarding is best-effort: the game is already saved above,
+	// so a failure here shouldn't fail the whole request.
+	newAchievements := []map[string]string{}
+	correctFeatures := make(map[string]struct{})
+	for _, round := range body.Rounds {
+		if round.Outcome == "correct" {
+			correctFeatures[round.Feature] = struct{}{}
+		}
+	}
+	earnedSlugs := achievements.Evaluate(difficulty, correctFeatures)
+	newSlugs, err := h.store.AwardAchievements(r.Context(), user.ID, game.ID, earnedSlugs, geo.Version())
+	if err != nil {
+		log.Printf("award achievements: %v", err)
+	} else {
+		for _, slug := range newSlugs {
+			if def, ok := achievements.BySlug(slug); ok {
+				newAchievements = append(newAchievements, map[string]string{
+					"slug":        def.Slug,
+					"name":        def.Name,
+					"description": def.Description,
+				})
+			}
+		}
+	}
+	resp["new_achievements"] = newAchievements
+
 	utils.WriteJSON(w, http.StatusCreated, resp)
+}
+
+// checkDifficultyUnlocked reports an error if any continent present in the
+// submitted rounds is not yet unlocked at the requested difficulty for this
+// user.
+func (h *PracticeHandler) checkDifficultyUnlocked(ctx context.Context, userID int64, difficulty string, rounds []roundInput) error {
+	earned, err := h.store.GetUserAchievements(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("check achievements: %w", err)
+	}
+	earnedSet := make(map[string]bool, len(earned))
+	for slug := range earned {
+		earnedSet[slug] = true
+	}
+	unlocks := achievements.UnlockLevels(earnedSet)
+
+	for _, round := range rounds {
+		continent, ok := geo.ContinentOf(difficulty, round.Feature)
+		if !ok {
+			continue
+		}
+		if achievements.DifficultyRank(unlocks[continent]) < achievements.DifficultyRank(difficulty) {
+			return fmt.Errorf("difficulty locked for selected continents")
+		}
+	}
+	return nil
 }
