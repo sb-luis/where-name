@@ -6,10 +6,16 @@ import (
 	"github.com/sb-luis/where-name/apps/backend-go/internal/geo"
 )
 
-func TestAllHas24Definitions(t *testing.T) {
+func TestAllHas22Definitions(t *testing.T) {
 	defs := All()
-	if len(defs) != 24 {
-		t.Fatalf("expected 24 definitions, got %d", len(defs))
+	if len(defs) != 22 {
+		t.Fatalf("expected 22 definitions, got %d", len(defs))
+	}
+	if _, ok := BySlug("continent-south-america-medium"); ok {
+		t.Error("continent-south-america-medium should not exist (0 new countries)")
+	}
+	if _, ok := BySlug("continent-antarctica-hard"); ok {
+		t.Error("continent-antarctica-hard should not exist (0 new countries)")
 	}
 	for _, d := range defs {
 		if d.Continent == "" {
@@ -96,11 +102,15 @@ func TestEvaluateMissingCountry(t *testing.T) {
 }
 
 func TestUnlockLevels(t *testing.T) {
-	t.Run("no achievements: all continents easy", func(t *testing.T) {
+	t.Run("no achievements: all continents easy except South America (medium, 0 new countries)", func(t *testing.T) {
 		levels := UnlockLevels(map[string]bool{})
 		for _, continent := range geo.Continents() {
-			if levels[continent] != "easy" {
-				t.Errorf("%s = %q, want easy", continent, levels[continent])
+			want := "easy"
+			if continent == "South America" {
+				want = "medium"
+			}
+			if levels[continent] != want {
+				t.Errorf("%s = %q, want %s", continent, levels[continent], want)
 			}
 		}
 	})
@@ -131,6 +141,83 @@ func TestUnlockLevels(t *testing.T) {
 			t.Errorf("Africa = %q, want easy (medium without easy should not unlock)", levels["Africa"])
 		}
 	})
+}
+
+func TestUnlockLevelsAntarcticaSkipsMediumGate(t *testing.T) {
+	// zero achievements: locked at easy
+	levels := UnlockLevels(map[string]bool{})
+	if levels["Antarctica"] != "easy" {
+		t.Errorf("Antarctica = %q, want easy", levels["Antarctica"])
+	}
+
+	// earning easy jumps straight to hard: medium has 0 new countries and
+	// hard also has 0 new countries over medium, so both auto-extend.
+	levels = UnlockLevels(map[string]bool{"continent-antarctica-easy": true})
+	if levels["Antarctica"] != "hard" {
+		t.Errorf("Antarctica = %q, want hard", levels["Antarctica"])
+	}
+
+	// continent-antarctica-medium is still a real, earnable achievement
+	// even though it gates nothing further.
+	if _, ok := BySlug("continent-antarctica-medium"); !ok {
+		t.Error("expected continent-antarctica-medium to still exist")
+	}
+}
+
+func TestEvaluateNeverEmitsZeroDeltaSlugs(t *testing.T) {
+	for _, difficulty := range []string{"easy", "medium", "hard"} {
+		correct := make(map[string]struct{})
+		for _, continent := range geo.Continents() {
+			set, ok := geo.ContinentSet(difficulty, continent)
+			if !ok {
+				continue
+			}
+			for f := range set {
+				correct[f] = struct{}{}
+			}
+		}
+		earned := Evaluate(difficulty, correct)
+		if contains(earned, "continent-south-america-medium") {
+			t.Errorf("did not expect continent-south-america-medium, got %v", earned)
+		}
+		if contains(earned, "continent-antarctica-hard") {
+			t.Errorf("did not expect continent-antarctica-hard, got %v", earned)
+		}
+	}
+}
+
+func TestNewCountryCount(t *testing.T) {
+	cases := []struct {
+		difficulty string
+		continent  string
+		want       int
+	}{
+		{"easy", "Africa", 51},
+		{"medium", "South America", 0},
+		{"hard", "Antarctica", 0},
+	}
+	for _, c := range cases {
+		if got := geo.NewCountryCount(c.difficulty, c.continent); got != c.want {
+			t.Errorf("NewCountryCount(%s, %s) = %d, want %d", c.difficulty, c.continent, got, c.want)
+		}
+	}
+}
+
+func TestDefinitionNewCountriesWorldSums(t *testing.T) {
+	cases := map[string]int{
+		"world-easy":   177,
+		"world-medium": 65,
+		"world-hard":   16,
+	}
+	for slug, want := range cases {
+		d, ok := BySlug(slug)
+		if !ok {
+			t.Fatalf("missing %s", slug)
+		}
+		if d.NewCountries != want {
+			t.Errorf("%s.NewCountries = %d, want %d", slug, d.NewCountries, want)
+		}
+	}
 }
 
 func contains(slugs []string, target string) bool {

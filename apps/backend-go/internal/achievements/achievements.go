@@ -10,11 +10,12 @@ import (
 )
 
 type Definition struct {
-	Slug        string
-	Name        string
-	Description string
-	Continent   string // empty for world achievements
-	Difficulty  string
+	Slug         string
+	Name         string
+	Description  string
+	Continent    string // empty for world achievements
+	Difficulty   string
+	NewCountries int // countries first introduced at this tier
 }
 
 var difficultyTitle = map[string]string{
@@ -47,23 +48,34 @@ func init() {
 
 	for _, difficulty := range difficultyOrder {
 		for _, continent := range continents {
+			count := geo.NewCountryCount(difficulty, continent)
+			if count == 0 {
+				// No new content over the previous tier: nothing to unlock.
+				continue
+			}
 			d := Definition{
-				Slug:        fmt.Sprintf("continent-%s-%s", slugify(continent), difficulty),
-				Name:        fmt.Sprintf("%s · %s", continent, difficultyTitle[difficulty]),
-				Description: fmt.Sprintf("Guess every country in %s correctly in a single %s game", continent, difficulty),
-				Continent:   continent,
-				Difficulty:  difficulty,
+				Slug:         fmt.Sprintf("continent-%s-%s", slugify(continent), difficulty),
+				Name:         fmt.Sprintf("%s · %s", continent, difficultyTitle[difficulty]),
+				Description:  fmt.Sprintf("Guess every country in %s correctly in a single %s game", continent, difficulty),
+				Continent:    continent,
+				Difficulty:   difficulty,
+				NewCountries: count,
 			}
 			all = append(all, d)
 			bySlug[d.Slug] = d
 		}
 	}
 	for _, difficulty := range difficultyOrder {
+		total := 0
+		for _, continent := range continents {
+			total += geo.NewCountryCount(difficulty, continent)
+		}
 		d := Definition{
-			Slug:        fmt.Sprintf("world-%s", difficulty),
-			Name:        fmt.Sprintf("World · %s", difficultyTitle[difficulty]),
-			Description: fmt.Sprintf("Guess every country in the world correctly in a single %s game", difficulty),
-			Difficulty:  difficulty,
+			Slug:         fmt.Sprintf("world-%s", difficulty),
+			Name:         fmt.Sprintf("World · %s", difficultyTitle[difficulty]),
+			Description:  fmt.Sprintf("Guess every country in the world correctly in a single %s game", difficulty),
+			Difficulty:   difficulty,
+			NewCountries: total,
 		}
 		all = append(all, d)
 		bySlug[d.Slug] = d
@@ -94,7 +106,9 @@ func Evaluate(difficulty string, correctFeatures map[string]struct{}) []string {
 			continue
 		}
 		if isSuperset(correctFeatures, set) {
-			earned = append(earned, fmt.Sprintf("continent-%s-%s", slugify(continent), difficulty))
+			if slug := fmt.Sprintf("continent-%s-%s", slugify(continent), difficulty); bySlug[slug].Slug != "" {
+				earned = append(earned, slug)
+			}
 		} else {
 			worldCovered = false
 		}
@@ -115,19 +129,29 @@ func isSuperset(have, want map[string]struct{}) bool {
 }
 
 // UnlockLevels returns, per continent, the highest difficulty playable given
-// the set of earned achievement slugs. Every continent is playable at easy;
-// medium requires continent-<c>-easy, hard requires continent-<c>-medium.
+// the set of earned achievement slugs. Every continent is playable at easy.
+// A tier with zero new countries over the previous one has no achievement
+// and unlocks automatically; otherwise advancing past a tier requires the
+// achievement for the current gate tier to be earned.
 func UnlockLevels(earned map[string]bool) map[string]string {
 	levels := make(map[string]string, len(geo.Continents()))
 	for _, continent := range geo.Continents() {
-		level := "easy"
-		if earned[fmt.Sprintf("continent-%s-easy", slugify(continent))] {
-			level = "medium"
-			if earned[fmt.Sprintf("continent-%s-medium", slugify(continent))] {
-				level = "hard"
+		unlockedMax := "easy"
+		gateTier := "easy"
+		for i := 1; i < len(difficultyOrder); i++ {
+			tier := difficultyOrder[i]
+			if geo.NewCountryCount(tier, continent) == 0 {
+				unlockedMax = tier
+				continue
 			}
+			if earned[fmt.Sprintf("continent-%s-%s", slugify(continent), gateTier)] {
+				unlockedMax = tier
+				gateTier = tier
+				continue
+			}
+			break
 		}
-		levels[continent] = level
+		levels[continent] = unlockedMax
 	}
 	return levels
 }

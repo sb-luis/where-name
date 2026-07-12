@@ -38,23 +38,25 @@ func (h *AchievementsHandler) GetAchievements(w http.ResponseWriter, r *http.Req
 	}
 
 	type achievementOut struct {
-		Slug        string `json:"slug"`
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		Continent   string `json:"continent,omitempty"`
-		Difficulty  string `json:"difficulty"`
-		UnlockedAt  string `json:"unlocked_at,omitempty"`
+		Slug         string `json:"slug"`
+		Name         string `json:"name"`
+		Description  string `json:"description"`
+		Continent    string `json:"continent,omitempty"`
+		Difficulty   string `json:"difficulty"`
+		UnlockedAt   string `json:"unlocked_at,omitempty"`
+		NewCountries int    `json:"new_countries"`
 	}
 
 	defs := achievements.All()
 	out := make([]achievementOut, len(defs))
 	for i, d := range defs {
 		a := achievementOut{
-			Slug:        d.Slug,
-			Name:        d.Name,
-			Description: d.Description,
-			Continent:   d.Continent,
-			Difficulty:  d.Difficulty,
+			Slug:         d.Slug,
+			Name:         d.Name,
+			Description:  d.Description,
+			Continent:    d.Continent,
+			Difficulty:   d.Difficulty,
+			NewCountries: d.NewCountries,
 		}
 		if unlockedAt, ok := earned[d.Slug]; ok {
 			a.UnlockedAt = unlockedAt.Format(time.RFC3339)

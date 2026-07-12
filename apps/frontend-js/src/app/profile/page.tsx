@@ -349,7 +349,11 @@ export default function ProfilePage() {
                 {Object.entries(groupByContinent(achievementsData.achievements)).map(([group, items]) => (
                   <div key={group} className="space-y-2">
                     <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">{group}</p>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className={`grid gap-2 ${
+                      items.length === 1 ? 'grid-cols-1' :
+                      items.length === 2 ? 'grid-cols-2' :
+                      'grid-cols-3'
+                    }`}>
                       {items.map(a => (
                         <AchievementBadge
                           key={a.slug}

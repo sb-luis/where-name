@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { WelcomePage } from '@/components/multiplayer/WelcomePage'
 import { PracticeSetupModal } from '@/components/ui/PracticeSetupModal'
 import { SignUpCtaModal } from '@/components/auth/SignUpCtaModal'
-import type { Continent } from '@/lib/game/countries'
+import { CONTINENTS, type Continent } from '@/lib/game/countries'
 import type { Difficulty } from '@/lib/game/types'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { usePresence } from '@/lib/multiplayer/usePresence'
@@ -13,6 +13,10 @@ import { useGame } from '@/lib/game/GameContext'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { track } from '@/lib/analytics/track'
 import { EVENTS } from '@/lib/analytics/events'
+import { useAchievements } from '@/lib/achievements/useAchievements'
+import { totalUnlocked } from '@/lib/game/difficulty'
+
+const DEFAULT_UNLOCKS = Object.fromEntries(CONTINENTS.map(c => [c, 'easy' as Difficulty])) as Record<Continent, Difficulty>
 
 function randomLatLng() {
   return {
@@ -27,6 +31,8 @@ export default function Page() {
   const { cursors }  = usePresence()
   const { countryNames, startGame, startPractice, cameraOrientationRef } = useGame()
   const { user } = useAuth()
+  const { data: achievementsData } = useAchievements(!!user)
+  const unlockedCount = totalUnlocked(achievementsData?.unlocks ?? DEFAULT_UNLOCKS)
   const [showPracticeModal, setShowPracticeModal] = useState(false)
   const [authPrompt, setAuthPrompt] = useState<'customize' | 'explore' | null>(null)
 
@@ -70,7 +76,7 @@ export default function Page() {
         onExplore={handleExplore}
         exploreLocked={!user}
         loading={countryNames.length === 0}
-        countryCount={countryNames.length}
+        countryCount={unlockedCount}
         cursors={cursors}
         initialPosition={initialPosition}
         onCursorMove={emitCursorMove}

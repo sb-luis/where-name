@@ -49,3 +49,13 @@ export function poolFor(difficulty: Difficulty, continents: readonly Continent[]
   }
   return names
 }
+
+// sum of cumulative country counts per continent at each continent's unlocked difficulty
+export function totalUnlocked(unlocks: Record<Continent, Difficulty>): number {
+  let total = 0
+  for (const continent of typedManifest.continents as Continent[]) {
+    const difficulty = unlocks[continent] ?? 'easy'
+    total += (cumulative[difficulty][continent] ?? []).length
+  }
+  return total
+}

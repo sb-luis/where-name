@@ -7,6 +7,7 @@ export interface Achievement {
   description:  string
   continent?:   Continent
   difficulty:   Difficulty
+  new_countries: number
   unlocked_at?: string
 }
 

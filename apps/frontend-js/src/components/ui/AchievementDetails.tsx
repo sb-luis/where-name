@@ -47,6 +47,10 @@ export function AchievementDetails({ achievement }: { achievement: Achievement |
 
         <p className="text-[13px] leading-snug text-gray-600">{achievement.description}</p>
 
+        <p className="text-[11px] font-medium text-gray-400">
+          Introduces {achievement.new_countries} new {achievement.new_countries === 1 ? 'country' : 'countries'}
+        </p>
+
         <p className="text-[11px] font-medium uppercase tracking-widest pt-0.5">
           {unlocked
             ? <span className="text-gray-400">Unlocked {formatDate(achievement.unlocked_at!)}</span>

@@ -124,6 +124,16 @@ func ContinentOf(difficulty, feature string) (string, bool) {
 	return "", false
 }
 
+// NewCountryCount returns how many countries first appear at this
+// difficulty for the given continent (raw manifest delta, not cumulative).
+func NewCountryCount(difficulty, continent string) int {
+	byContinent, ok := m.Difficulties[difficulty]
+	if !ok {
+		return 0
+	}
+	return len(byContinent[continent])
+}
+
 // Version returns the manifest version string.
 func Version() string {
 	return m.Version
