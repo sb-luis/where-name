@@ -13,7 +13,7 @@ export default function PracticePage() {
   const router                                = useRouter()
   const { emitCursorMove, emitStatus }        = useSocket()
   const { cursors }                           = usePresence()
-  const { targets, setResults, setElapsedMs, setStreakInfo, cameraOrientationRef, practiceTimeLimitMs } = useGame()
+  const { targets, setResults, setElapsedMs, setStreakInfo, setUnlockedAchievements, cameraOrientationRef, practiceTimeLimitMs, difficulty } = useGame()
 
   useEffect(() => { emitStatus('practice') }, [emitStatus])
 
@@ -36,6 +36,7 @@ export default function PracticePage() {
     <GameScreen
       practice
       practiceTimeLimitMs={practiceTimeLimitMs}
+      difficulty={difficulty}
       targets={targets}
       cursors={cursors}
       initialPosition={initialPosition}
@@ -48,7 +49,7 @@ export default function PracticePage() {
         }
         const completed = results.length === targets.length
         const saved = elapsedMs != null
-          ? await savePracticeGame(results, elapsedMs, completed).catch(() => null)
+          ? await savePracticeGame(results, elapsedMs, completed, difficulty).catch(() => null)
           : null
         flushSync(() => {
           setResults(results)
@@ -56,8 +57,14 @@ export default function PracticePage() {
           if (saved?.isFirstGameToday) {
             setStreakInfo({ current: saved.currentStreak ?? 0, longest: saved.longestStreak ?? 0 })
           }
+          if (saved?.newAchievements?.length) {
+            setUnlockedAchievements(saved.newAchievements)
+          }
         })
-        router.push(saved?.isFirstGameToday ? '/streak' : '/results')
+        router.push(
+          saved?.newAchievements?.length ? '/achievements-unlocked' :
+          saved?.isFirstGameToday ? '/streak' : '/results'
+        )
       }}
     />
   )

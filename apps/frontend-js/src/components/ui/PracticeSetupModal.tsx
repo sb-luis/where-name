@@ -1,10 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
+import { PillGroup } from '@/components/ui/PillGroup'
 import { useAuth } from '@/lib/auth/AuthContext'
+import { useAchievements } from '@/lib/achievements/useAchievements'
 import { CONTINENTS, type Continent } from '@/lib/game/countries'
+import { DIFFICULTIES, type Difficulty } from '@/lib/game/types'
 
 const TIME_STORAGE_KEY = 'practice_time_limit'
 const DEFAULT_LIMIT_MS = 1 * 60 * 1000
@@ -71,13 +74,48 @@ export function savePracticeContinents(continents: Continent[]) {
   } catch {}
 }
 
+const DIFFICULTY_STORAGE_KEY = 'practice_difficulty'
+const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }
+
+export function loadPracticeDifficulty(): Difficulty {
+  try {
+    const raw = localStorage.getItem(DIFFICULTY_STORAGE_KEY)
+    return (DIFFICULTIES as string[]).includes(raw ?? '') ? (raw as Difficulty) : 'easy'
+  } catch {
+    return 'easy'
+  }
+}
+
+export function savePracticeDifficulty(difficulty: Difficulty) {
+  try {
+    localStorage.setItem(DIFFICULTY_STORAGE_KEY, difficulty)
+  } catch {}
+}
+
+// max selectable difficulty = MIN unlock level across selected continents
+function maxUnlockFor(continents: Continent[], unlocks: Record<Continent, Difficulty> | null): Difficulty {
+  if (!unlocks || !continents.length) return 'easy'
+  let maxRank = DIFFICULTIES.length - 1
+  for (const c of continents) {
+    const rank = DIFFICULTIES.indexOf(unlocks[c] ?? 'easy')
+    if (rank < maxRank) maxRank = rank
+  }
+  return DIFFICULTIES[maxRank]
+}
+
+function limitingContinents(continents: Continent[], unlocks: Record<Continent, Difficulty> | null, maxAllowed: Difficulty): Continent[] {
+  if (!unlocks) return []
+  const maxRank = DIFFICULTIES.indexOf(maxAllowed)
+  return continents.filter(c => DIFFICULTIES.indexOf(unlocks[c] ?? 'easy') === maxRank)
+}
+
 const pillBase = 'rounded-full px-4 py-1.5 text-sm font-semibold transition-all duration-150 select-none'
 const pillActive   = `${pillBase} bg-gray-900 text-white cursor-pointer active:scale-95`
 const pillInactive = `${pillBase} bg-black/6 text-gray-600 hover:bg-black/10 cursor-pointer active:scale-95`
 const pillLocked   = `${pillBase} bg-black/6 text-gray-600 blur-[2.5px] cursor-not-allowed`
 
 interface Props {
-  onConfirm: (timeLimitMs: number | null, continents: Continent[]) => void
+  onConfirm: (timeLimitMs: number | null, continents: Continent[], difficulty: Difficulty) => void
   onClose:   () => void
   onSignUp?: () => void
 }
@@ -85,9 +123,22 @@ interface Props {
 export function PracticeSetupModal({ onConfirm, onClose, onSignUp }: Props) {
   const { user }  = useAuth()
   const locked    = !user
+  const { data: achievementsData } = useAchievements(!locked)
+  const unlocks = achievementsData?.unlocks ?? null
 
   const [selectedTime, setSelectedTime]             = useState<number | null>(loadPracticeTimeLimit)
   const [selectedContinents, setSelectedContinents] = useState<Continent[]>(loadPracticeContinents)
+  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>(loadPracticeDifficulty)
+
+  const maxAllowed = useMemo(
+    () => maxUnlockFor(selectedContinents, unlocks),
+    [selectedContinents, unlocks],
+  )
+
+  // clamp to the group-min-unlock ceiling whenever continent changes make the pick unreachable
+  const effectiveDifficulty = DIFFICULTIES.indexOf(selectedDifficulty) > DIFFICULTIES.indexOf(maxAllowed)
+    ? maxAllowed
+    : selectedDifficulty
 
   const toggleContinent = (continent: Continent) => {
     setSelectedContinents(prev =>
@@ -95,15 +146,24 @@ export function PracticeSetupModal({ onConfirm, onClose, onSignUp }: Props) {
     )
   }
 
+  const lockedHint = useMemo(() => {
+    if (maxAllowed === 'hard' || !unlocks) return null
+    const blockers = limitingContinents(selectedContinents, unlocks, maxAllowed).slice(0, 2)
+    if (!blockers.length) return null
+    const nextLocked = DIFFICULTIES[DIFFICULTIES.indexOf(maxAllowed) + 1]
+    return `${DIFFICULTY_LABELS[nextLocked]} locked — ${blockers.map(c => CONTINENT_LABELS[c]).join(', ')} ${blockers.length > 1 ? 'are' : 'is'} only unlocked to ${DIFFICULTY_LABELS[maxAllowed]}`
+  }, [maxAllowed, selectedContinents, unlocks])
+
   const handleConfirm = () => {
     if (locked) {
-      onConfirm(DEFAULT_LIMIT_MS, [...CONTINENTS])
+      onConfirm(DEFAULT_LIMIT_MS, [...CONTINENTS], 'easy')
       return
     }
     if (!selectedContinents.length) return
     savePracticeTimeLimit(selectedTime)
     savePracticeContinents(selectedContinents)
-    onConfirm(selectedTime, selectedContinents)
+    savePracticeDifficulty(effectiveDifficulty)
+    onConfirm(selectedTime, selectedContinents, effectiveDifficulty)
   }
 
   return (
@@ -145,6 +205,28 @@ export function PracticeSetupModal({ onConfirm, onClose, onSignUp }: Props) {
             {CONTINENT_LABELS[continent]}
           </button>
         ))}
+      </div>
+
+      <div className="space-y-1">
+        <p className={`text-base font-bold text-gray-900 ${locked ? 'line-through decoration-2' : ''}`}>
+          difficulty
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <PillGroup
+          options={DIFFICULTIES.map(d => ({
+            value: d,
+            label: DIFFICULTY_LABELS[d],
+            disabled: DIFFICULTIES.indexOf(d) > DIFFICULTIES.indexOf(maxAllowed),
+          }))}
+          selected={effectiveDifficulty}
+          onSelect={setSelectedDifficulty}
+          locked={locked}
+        />
+        {!locked && lockedHint && (
+          <p className="text-xs text-gray-400">{lockedHint}</p>
+        )}
       </div>
 
       {locked ? (

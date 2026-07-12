@@ -6,6 +6,7 @@ import { WelcomePage } from '@/components/multiplayer/WelcomePage'
 import { PracticeSetupModal } from '@/components/ui/PracticeSetupModal'
 import { SignUpCtaModal } from '@/components/auth/SignUpCtaModal'
 import type { Continent } from '@/lib/game/countries'
+import type { Difficulty } from '@/lib/game/types'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { usePresence } from '@/lib/multiplayer/usePresence'
 import { useGame } from '@/lib/game/GameContext'
@@ -41,15 +42,16 @@ export default function Page() {
 
   const handleStart = () => { startGame(); router.push('/play') }
   const handlePractice = () => { setShowPracticeModal(true) }
-  const handlePracticeConfirm = (timeLimitMs: number | null, continents: Continent[]) => {
+  const handlePracticeConfirm = (timeLimitMs: number | null, continents: Continent[], difficulty: Difficulty) => {
     setShowPracticeModal(false)
     track(EVENTS.PRACTICE_STARTED, {
       source: 'setup',
       time_limit_ms: timeLimitMs,
       continents,
+      difficulty,
       authenticated: !!user,
     })
-    startPractice(timeLimitMs, continents)
+    startPractice(timeLimitMs, continents, difficulty)
     router.push('/practice')
   }
   const handleExplore = () => {

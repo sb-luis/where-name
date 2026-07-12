@@ -9,8 +9,11 @@ import {
   useCallback,
   type ReactNode,
 } from 'react'
-import { useCountryEntries, pickRandom, filterByContinents, CONTINENTS } from './countries'
-import type { RoundResult } from './types'
+import { pickRandom, CONTINENTS } from './countries'
+import type { Continent } from './countries'
+import { poolFor } from './difficulty'
+import type { RoundResult, Difficulty } from './types'
+import type { Achievement } from './api'
 
 export interface LatLng { lat: number; lng: number }
 
@@ -24,45 +27,51 @@ interface GameContextValue {
   elapsedMs:              number | null
   practiceTimeLimitMs:    number | null
   streakInfo:             StreakInfo | null
+  difficulty:             Difficulty
+  unlockedAchievements:   Achievement[] | null
   startGame:              () => void
-  startPractice:          (timeLimitMs: number | null, continents?: readonly string[]) => void
+  startPractice:          (timeLimitMs: number | null, continents?: readonly string[], difficulty?: Difficulty) => void
   startPracticeWithTargets: (names: string[]) => void
   setResults:             (results: RoundResult[]) => void
   setElapsedMs:           (ms: number | null) => void
   setStreakInfo:          (info: StreakInfo | null) => void
+  setUnlockedAchievements: (achievements: Achievement[] | null) => void
   cameraOrientationRef:   React.MutableRefObject<LatLng | null>
 }
 
 const GameContext = createContext<GameContextValue | null>(null)
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  const countryEntries                        = useCountryEntries()
-  const countryNames                          = useMemo(() => countryEntries.map(e => e.name), [countryEntries])
+  const countryNames                          = useMemo(() => poolFor('easy', CONTINENTS), [])
   const [targets, setTargets]                 = useState<string[]>([])
   const [results, setResults]                 = useState<RoundResult[] | null>(null)
   const [mode, setMode]                       = useState<'timed' | 'practice'>('timed')
   const [elapsedMs, setElapsedMs]             = useState<number | null>(null)
   const [practiceTimeLimitMs, setPracticeTimeLimitMs] = useState<number | null>(null)
   const [streakInfo, setStreakInfo]           = useState<StreakInfo | null>(null)
+  const [difficulty, setDifficulty]           = useState<Difficulty>('easy')
+  const [unlockedAchievements, setUnlockedAchievements] = useState<Achievement[] | null>(null)
   const cameraOrientationRef                  = useRef<LatLng | null>(null)
 
   const startGame = useCallback(() => {
     if (!countryNames.length) return
     setMode('timed')
     setElapsedMs(null)
+    setDifficulty('easy')
     setTargets(pickRandom(countryNames, countryNames.length))
     setResults(null)
   }, [countryNames])
 
-  const startPractice = useCallback((timeLimitMs: number | null, continents: readonly string[] = CONTINENTS) => {
-    const pool = filterByContinents(countryEntries, continents)
+  const startPractice = useCallback((timeLimitMs: number | null, continents: readonly string[] = CONTINENTS, gameDifficulty: Difficulty = 'easy') => {
+    const pool = poolFor(gameDifficulty, continents as Continent[])
     if (!pool.length) return
     setMode('practice')
     setElapsedMs(null)
     setPracticeTimeLimitMs(timeLimitMs)
+    setDifficulty(gameDifficulty)
     setTargets(pickRandom(pool, pool.length))
     setResults(null)
-  }, [countryEntries])
+  }, [])
 
   const startPracticeWithTargets = useCallback((names: string[]) => {
     if (!names.length) return
@@ -73,11 +82,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<GameContextValue>(() => ({
-    countryNames, targets, results, mode, elapsedMs, practiceTimeLimitMs, streakInfo,
+    countryNames, targets, results, mode, elapsedMs, practiceTimeLimitMs, streakInfo, difficulty,
+    unlockedAchievements,
     startGame, startPractice, startPracticeWithTargets, setResults, setElapsedMs, setStreakInfo,
+    setUnlockedAchievements,
     cameraOrientationRef,
   }), [
-    countryNames, targets, results, mode, elapsedMs, practiceTimeLimitMs, streakInfo,
+    countryNames, targets, results, mode, elapsedMs, practiceTimeLimitMs, streakInfo, difficulty,
+    unlockedAchievements,
     startGame, startPractice, startPracticeWithTargets,
   ])
 

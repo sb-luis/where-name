@@ -1,24 +1,33 @@
-import type { RoundResult } from './types'
+import type { RoundResult, Difficulty } from './types'
+import { DIFFICULTY_VARIANT } from './difficulty'
 import { getDistinctId } from '@/lib/analytics/track'
+
+export interface Achievement {
+  slug: string
+  name: string
+  description: string
+}
 
 export interface SavePracticeGameResult {
   saved: boolean
   currentStreak?: number
   longestStreak?: number
   isFirstGameToday?: boolean
+  newAchievements?: Achievement[]
 }
 
 export async function savePracticeGame(
   results: RoundResult[],
   elapsedMs: number,
   completed: boolean,
+  difficulty: Difficulty,
   opts: { skipAnalytics?: boolean } = {},
 ): Promise<SavePracticeGameResult> {
   const res = await fetch('/api/practice/games', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      variant: 'ne_110m_admin_0_countries',
+      variant: DIFFICULTY_VARIANT[difficulty],
       completed,
       duration_ms: elapsedMs,
       distinct_id: getDistinctId(),
@@ -39,5 +48,6 @@ export async function savePracticeGame(
     currentStreak:     data.current_streak,
     longestStreak:     data.longest_streak,
     isFirstGameToday:  data.is_first_game_today,
+    newAchievements:   data.new_achievements,
   }
 }

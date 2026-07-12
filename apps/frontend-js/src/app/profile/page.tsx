@@ -9,7 +9,10 @@ import { Alert } from '@/components/ui/Alert'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { StatCards } from '@/components/stats/StatCards'
 import { WorldMap } from '@/components/stats/WorldMap'
+import { AchievementBadge } from '@/components/ui/AchievementBadge'
 import { useGeoData } from '@/lib/geo/GeoDataContext'
+import { useAchievements } from '@/lib/achievements/useAchievements'
+import type { Achievement } from '@/lib/achievements/types'
 import { LEVELS } from '@/lib/geo/lod'
 import type { CountryStat } from '@/components/stats/WorldMap'
 import type { GeoCollection } from '@/lib/geo/types'
@@ -83,6 +86,15 @@ function Section({ label, open, onToggle, children }: SectionProps) {
   )
 }
 
+function groupByContinent(achievements: Achievement[]): Record<string, Achievement[]> {
+  const groups: Record<string, Achievement[]> = {}
+  for (const a of achievements) {
+    const key = a.continent ?? 'World'
+    ;(groups[key] ??= []).push(a)
+  }
+  return groups
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const { user, loading, updateProfile, logout } = useAuth()
@@ -93,6 +105,7 @@ export default function ProfilePage() {
   const [profileStats, setProfileStats]   = useState<ProfileStats | null>(null)
   const [geo, setGeo] = useState<GeoCollection | null>(null)
   const [statsError, setStatsError] = useState(false)
+  const { data: achievementsData } = useAchievements(!!user)
 
   useEffect(() => {
     if (!loading && !user) router.replace('/')
@@ -113,7 +126,7 @@ export default function ProfilePage() {
     })
   }, [user, loadCollection])
 
-  const [openSection, setOpenSection] = useState<'alias' | 'password' | 'cursor' | null>(null)
+  const [openSection, setOpenSection] = useState<'alias' | 'password' | 'cursor' | 'achievements' | null>(null)
   const toggle = (s: typeof openSection) => setOpenSection(prev => prev === s ? null : s)
 
   const [username, setUsername]         = useState('')
@@ -316,6 +329,32 @@ export default function ProfilePage() {
                 update cursor
               </Button>
             </div>
+          </Section>
+
+          {/* Achievements */}
+          <Section
+            label="achievements"
+            open={openSection === 'achievements'}
+            onToggle={() => toggle('achievements')}
+          >
+            {achievementsData ? (
+              <div className="space-y-4">
+                <StatCards stats={[{
+                  label: 'unlocked',
+                  value: `${achievementsData.achievements.filter(a => a.unlocked_at).length} / ${achievementsData.achievements.length}`,
+                }]} />
+                {Object.entries(groupByContinent(achievementsData.achievements)).map(([group, items]) => (
+                  <div key={group} className="space-y-2">
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">{group}</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {items.map(a => <AchievementBadge key={a.slug} achievement={a} />)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="w-full h-24 rounded-xl bg-gray-100 animate-pulse" />
+            )}
           </Section>
 
         </div>

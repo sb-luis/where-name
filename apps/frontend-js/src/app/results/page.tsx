@@ -19,7 +19,7 @@ import type { GeoCollection } from '@/lib/geo/types'
 export default function ResultsPage() {
   const router              = useRouter()
   const { emitStatus }      = useSocket()
-  const { results, mode, elapsedMs, targets, practiceTimeLimitMs, startPracticeWithTargets } = useGame()
+  const { results, mode, elapsedMs, targets, practiceTimeLimitMs, difficulty, startPracticeWithTargets } = useGame()
   const { loadCollection }  = useGeoData()
   const { user, loading: authLoading } = useAuth()
 
@@ -76,7 +76,7 @@ export default function ResultsPage() {
               const completed = results.length === targets.length
               // practice_completed was already reported (server side)
               // this call is just persisting data, now that they've signed up.
-              savePracticeGame(results, elapsedMs, completed, { skipAnalytics: true }).catch(() => {})
+              savePracticeGame(results, elapsedMs, completed, difficulty, { skipAnalytics: true }).catch(() => {})
             }
           }}
         >
