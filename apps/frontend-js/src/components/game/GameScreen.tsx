@@ -148,9 +148,13 @@ export function GameScreen({ targets, practice = false, practiceTimeLimitMs = nu
     } else {
       // Pause the clock for the breather period
       pausedAtRef.current = Date.now()
-      globeRef.current?.highlightWrong(country)
+      globeRef.current?.focusWrong(country)
       globeRef.current?.flyTo(country)
-      setTimeout(advance, BREATHER_MS)
+      // settle to the normal wrong-red right as gameplay resumes
+      setTimeout(() => {
+        globeRef.current?.highlightWrong(country)
+        advance()
+      }, BREATHER_MS)
     }
   }, [targets, advance])
 

@@ -19,7 +19,7 @@ import { latLonToVec3, vec3ToLatLon, largestRingExtent, angularExtentDeg, fitFov
 import { pickCountry } from '@/lib/geo/hit-test'
 import { fetchGeo } from '@/lib/geo/fetch'
 import { LEVELS, lodForFov, clamp, CAMERA_DIST, MIN_FOV, MAX_FOV, REVEAL_MIN_FOV, MIN_ORBITING_FOV, fovToSlider, sliderToFov } from '@/lib/geo/lod'
-import { C_OCEAN, C_LAND, C_BORDER, C_SELECTED, C_CORRECT, C_WRONG } from '@/lib/geo/palette'
+import { C_OCEAN, C_LAND, C_BORDER, C_SELECTED, C_CORRECT, C_WRONG, C_WRONG_FOCUS } from '@/lib/geo/palette'
 import type { GeoCollection, GeoFeature } from '@/lib/geo/types'
 import type { WorkerResponse } from '@/workers/geoBuilder.worker'
 import type { CursorData, UserStatus } from '@/lib/multiplayer/types'
@@ -35,9 +35,10 @@ interface LodData {
 interface Materials {
   fillDim:     THREE.MeshBasicMaterial
   fillHigh:    THREE.MeshBasicMaterial
-  fillCorrect: THREE.MeshBasicMaterial
-  fillWrong:   THREE.MeshBasicMaterial
-  border:      THREE.LineBasicMaterial
+  fillCorrect:    THREE.MeshBasicMaterial
+  fillWrong:      THREE.MeshBasicMaterial
+  fillWrongFocus: THREE.MeshBasicMaterial
+  border:         THREE.LineBasicMaterial
 }
 
 interface CursorState {
@@ -47,6 +48,9 @@ interface CursorState {
   alias:      string
   status:     UserStatus
 }
+
+// duration of the camera fly-to animation (ms); shared with GameScreen for the focus-highlight downgrade timing
+export const FLY_DURATION_MS = 1200
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -122,6 +126,7 @@ export interface MultiplayerGlobeSceneHandle {
   flyTo:            (countryName: string) => void
   highlightCorrect: (name: string) => void
   highlightWrong:   (name: string) => void
+  focusWrong:       (name: string) => void
   clearHighlight:   () => void
 }
 
@@ -156,8 +161,9 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
     const mats = useMemo<Materials>(() => ({
       fillDim:     new THREE.MeshBasicMaterial({ color: C_LAND,     side: THREE.DoubleSide }),
       fillHigh:    new THREE.MeshBasicMaterial({ color: C_SELECTED, side: THREE.DoubleSide }),
-      fillCorrect: new THREE.MeshBasicMaterial({ color: C_CORRECT,  side: THREE.DoubleSide }),
-      fillWrong:   new THREE.MeshBasicMaterial({ color: C_WRONG,    side: THREE.DoubleSide }),
+      fillCorrect:    new THREE.MeshBasicMaterial({ color: C_CORRECT,    side: THREE.DoubleSide }),
+      fillWrong:      new THREE.MeshBasicMaterial({ color: C_WRONG,      side: THREE.DoubleSide }),
+      fillWrongFocus: new THREE.MeshBasicMaterial({ color: C_WRONG_FOCUS, side: THREE.DoubleSide }),
       border:      new THREE.LineBasicMaterial({ color: C_BORDER,   depthTest: true, depthWrite: false }),
     }), [])
 
@@ -324,7 +330,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
       const startPos  = pc.position.clone()
       const startFov  = fovRef.current
       const peakFov   = Math.max(startFov, targetFov, MIN_ORBITING_FOV)
-      const duration  = 1200
+      const duration  = FLY_DURATION_MS
       const startTime = performance.now()
       const controls  = controlsRef.current
       if (controls) controls.enabled = false
@@ -408,6 +414,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
       flyTo,
       highlightCorrect: (name: string) => setGameHighlight(name, mats.fillCorrect),
       highlightWrong:   (name: string) => setGameHighlight(name, mats.fillWrong),
+      focusWrong:       (name: string) => setGameHighlight(name, mats.fillWrongFocus),
       clearHighlight:   clearGameHighlight,
     }), [setFov, animateTo, flyTo, setGameHighlight, clearGameHighlight, mats])
 
@@ -599,6 +606,7 @@ export interface MultiplayerGlobeHandle {
   flyTo:            (countryName: string) => void
   highlightCorrect: (name: string) => void
   highlightWrong:   (name: string) => void
+  focusWrong:       (name: string) => void
   clearHighlight:   () => void
 }
 
@@ -646,6 +654,7 @@ export const MultiplayerGlobe = forwardRef<MultiplayerGlobeHandle, Props>(
       flyTo:            (name) => sceneRef.current?.flyTo(name),
       highlightCorrect: (name) => sceneRef.current?.highlightCorrect(name),
       highlightWrong:   (name) => sceneRef.current?.highlightWrong(name),
+      focusWrong:       (name) => sceneRef.current?.focusWrong(name),
       clearHighlight:   () => sceneRef.current?.clearHighlight(),
     }), [])
 
