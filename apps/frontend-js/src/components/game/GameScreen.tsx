@@ -79,7 +79,6 @@ export function GameScreen({ targets, practice = false, practiceTimeLimitMs = nu
 
   // Each new country: go live immediately, unpausing the clock if it was paused
   useEffect(() => {
-    globeRef.current?.clearHighlight()
     if (pausedAtRef.current !== null) {
       const pausedDuration = Date.now() - pausedAtRef.current
       if (practice && !practiceCountdown) {
