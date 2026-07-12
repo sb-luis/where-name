@@ -1,6 +1,9 @@
 export const CAMERA_DIST = 3;
 export const MIN_FOV     = 0.3;
+export const REVEAL_MIN_FOV = 0.15;
 export const MAX_FOV     = 80;
+// Pull-back FOV for reveal transitions: how far the camera zooms out mid-flight before settling on the target.
+export const MIN_ORBITING_FOV = 25;
 const SLIDER_POWER = 2.5;
 
 const CDN = 'https://natural-earth-cdn.luis-sb.workers.dev';
@@ -25,5 +28,6 @@ export function sliderToFov(v: number): number {
 }
 
 export function fovToSlider(fov: number): number {
-  return 1 - Math.pow((fov - MIN_FOV) / (MAX_FOV - MIN_FOV), 1 / SLIDER_POWER);
+  const clamped = clamp(fov, MIN_FOV, MAX_FOV);
+  return 1 - Math.pow((clamped - MIN_FOV) / (MAX_FOV - MIN_FOV), 1 / SLIDER_POWER);
 }

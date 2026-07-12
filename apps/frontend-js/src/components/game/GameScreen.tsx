@@ -4,7 +4,8 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import NumberFlow from '@number-flow/react'
 import { MultiplayerGlobe } from '@/components/multiplayer/MultiplayerGlobe'
 import type { MultiplayerGlobeHandle } from '@/components/multiplayer/MultiplayerGlobe'
-import type { RoundResult } from '@/lib/game/types'
+import { DIFFICULTY_LOD_LEVEL } from '@/lib/game/difficulty'
+import type { RoundResult, Difficulty } from '@/lib/game/types'
 import type { CursorData } from '@/lib/multiplayer/types'
 
 const GAME_DURATION_S  = 60
@@ -20,6 +21,7 @@ interface Props {
   targets:                string[]
   practice?:              boolean
   practiceTimeLimitMs?:   number | null
+  difficulty?:            Difficulty
   cursors?:               CursorData[]
   initialPosition?:       { lat: number; lng: number }
   onCursorMove?:          (lat: number, lng: number) => void
@@ -28,7 +30,7 @@ interface Props {
   onQuit?:                () => void  // if provided, Quit goes here instead of onEnd (play mode: back to home)
 }
 
-export function GameScreen({ targets, practice = false, practiceTimeLimitMs = null, cursors = [], initialPosition, onCursorMove, onCameraChange, onEnd, onQuit }: Props) {
+export function GameScreen({ targets, practice = false, practiceTimeLimitMs = null, difficulty = 'easy', cursors = [], initialPosition, onCursorMove, onCameraChange, onEnd, onQuit }: Props) {
   const practiceCountdown = practice && practiceTimeLimitMs != null
 
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -77,6 +79,7 @@ export function GameScreen({ targets, practice = false, practiceTimeLimitMs = nu
 
   // Each new country: go live immediately, unpausing the clock if it was paused
   useEffect(() => {
+    globeRef.current?.clearHighlight()
     if (pausedAtRef.current !== null) {
       const pausedDuration = Date.now() - pausedAtRef.current
       if (practice && !practiceCountdown) {
@@ -174,6 +177,7 @@ export function GameScreen({ targets, practice = false, practiceTimeLimitMs = nu
         initialPosition={initialPosition}
         showLabel={false}
         interactive={isLive}
+        minLodLevel={DIFFICULTY_LOD_LEVEL[difficulty]}
       />
 
       {/* HUD */}

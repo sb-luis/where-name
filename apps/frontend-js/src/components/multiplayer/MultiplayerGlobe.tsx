@@ -15,12 +15,12 @@ import type { ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 
 import { GlobeRefLines } from '@/components/globe/GlobeRefLines'
-import { latLonToVec3, vec3ToLatLon } from '@/lib/geo/geometry'
+import { latLonToVec3, vec3ToLatLon, largestRingExtent, angularExtentDeg, fitFovForExtent } from '@/lib/geo/geometry'
 import { pickCountry } from '@/lib/geo/hit-test'
 import { fetchGeo } from '@/lib/geo/fetch'
-import { LEVELS, lodForFov, clamp, CAMERA_DIST, MIN_FOV, MAX_FOV, fovToSlider, sliderToFov } from '@/lib/geo/lod'
+import { LEVELS, lodForFov, clamp, CAMERA_DIST, MIN_FOV, MAX_FOV, REVEAL_MIN_FOV, MIN_ORBITING_FOV, fovToSlider, sliderToFov } from '@/lib/geo/lod'
 import { C_OCEAN, C_LAND, C_BORDER, C_SELECTED, C_CORRECT, C_WRONG } from '@/lib/geo/palette'
-import type { GeoCollection } from '@/lib/geo/types'
+import type { GeoCollection, GeoFeature } from '@/lib/geo/types'
 import type { WorkerResponse } from '@/workers/geoBuilder.worker'
 import type { CursorData, UserStatus } from '@/lib/multiplayer/types'
 
@@ -136,15 +136,18 @@ interface SceneProps {
   cursorRefsMap:   React.RefObject<Map<string, HTMLDivElement>>
   currentStatus:   UserStatus
   interactive?:    boolean
+  minLodLevel?:    0 | 1 | 2
 }
 
 const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
   function MultiplayerScene(
-    { onSelect, onFovChange, onCursorMove, onCameraChange, cursorDataRef, cursorRefsMap, currentStatus, interactive = true },
+    { onSelect, onFovChange, onCursorMove, onCameraChange, cursorDataRef, cursorRefsMap, currentStatus, interactive = true, minLodLevel = 0 },
     ref,
   ) {
     const interactiveRef = useRef(interactive)
     interactiveRef.current = interactive
+    const minLodLevelRef = useRef(minLodLevel)
+    minLodLevelRef.current = minLodLevel
 
     const { scene, camera, gl } = useThree()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -161,6 +164,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
     const workerRef        = useRef<Worker | null>(null)
     const lodDataRef       = useRef<(LodData | null)[]>([null, null, null])
     const geojsonsRef      = useRef<(GeoCollection | null)[]>([null, null, null])
+    const featureMapsRef   = useRef<(Map<string, GeoFeature> | null)[]>([null, null, null])
     const loadedRef        = useRef<boolean[]>([false, false, false])
     const buildPromiseRef  = useRef<(Promise<void> | null)[]>([null, null, null])
     const activeLodRef     = useRef(-1)
@@ -169,6 +173,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
     const selectedGroupRef = useRef<THREE.Group | null>(null)
     const gameHlsRef       = useRef<Map<string, THREE.MeshBasicMaterial>>(new Map())
     const fovRef           = useRef(MAX_FOV)
+    const fovFloorRef      = useRef(MIN_FOV)
     const aliveRef         = useRef(true)
     const flyRafRef        = useRef<number | null>(null)
     const onCursorMoveRef   = useRef(onCursorMove)
@@ -294,7 +299,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
     useEffect(() => { onFovChangeRef.current = onFovChange }, [onFovChange])
 
     const setFov = useCallback((fov: number) => {
-      const f = clamp(fov, MIN_FOV, MAX_FOV)
+      const f = clamp(fov, fovFloorRef.current, MAX_FOV)
       fovRef.current = f
       pc.fov = f
       pc.updateProjectionMatrix()
@@ -307,7 +312,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
 
       onFovChangeRef.current?.(f)
 
-      const level = lodForFov(f)
+      const level = Math.max(lodForFov(f), minLodLevelRef.current) as 0 | 1 | 2
       if (level !== currentLevelRef.current) {
         currentLevelRef.current = level
         loadedRef.current[level] ? applyLod(level) : loadLod(level)
@@ -318,19 +323,27 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
       if (flyRafRef.current !== null) { cancelAnimationFrame(flyRafRef.current); flyRafRef.current = null }
       const startPos  = pc.position.clone()
       const startFov  = fovRef.current
+      const peakFov   = Math.max(startFov, targetFov, MIN_ORBITING_FOV)
       const duration  = 1200
       const startTime = performance.now()
       const controls  = controlsRef.current
       if (controls) controls.enabled = false
 
+      const ease = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+
       const tick = () => {
         const raw  = Math.min((performance.now() - startTime) / duration, 1)
-        const tArc = raw < 0.5 ? 4 * raw * raw * raw : 1 - Math.pow(-2 * raw + 2, 3) / 2
+        const tArc = ease(raw)
 
         const dir = startPos.clone().normalize().lerp(targetDir, tArc).normalize()
         pc.position.copy(dir.multiplyScalar(CAMERA_DIST))
         pc.lookAt(0, 0, 0)
-        setFov(clamp(startFov + (targetFov - startFov) * tArc, MIN_FOV, MAX_FOV))
+
+        // pull back to peakFov in the first half, settle onto targetFov in the second — keeps travel zoomed out
+        const fov = raw < 0.5
+          ? startFov + (peakFov - startFov) * ease(raw * 2)
+          : peakFov + (targetFov - peakFov) * ease((raw - 0.5) * 2)
+        setFov(clamp(fov, fovFloorRef.current, MAX_FOV))
 
         if (raw < 1) {
           flyRafRef.current = requestAnimationFrame(tick)
@@ -342,44 +355,56 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
       flyRafRef.current = requestAnimationFrame(tick)
     }, [pc, setFov])
 
-    const flyTo = useCallback((countryName: string) => {
-      let centroid: { lat: number; lon: number } | null = null
-      for (const geo of geojsonsRef.current) {
-        if (!geo) continue
-        const feat = geo.features.find(f => {
+    const getFeatureMap = useCallback((level: number): Map<string, GeoFeature> | null => {
+      const geo = geojsonsRef.current[level]
+      if (!geo) return null
+      if (!featureMapsRef.current[level]) {
+        const map = new Map<string, GeoFeature>()
+        for (const f of geo.features) {
           const n = String(f.properties?.NAME ?? f.properties?.ADMIN ?? '')
-          return n === countryName
-        })
-        if (!feat) continue
-
-        const polys = feat.geometry.type === 'Polygon'
-          ? [feat.geometry.coordinates as number[][][]]
-          : feat.geometry.coordinates as number[][][][]
-
-        let ring = polys[0][0]
-        for (const poly of polys) { if (poly[0].length > ring.length) ring = poly[0] }
-        let sumLon = 0, sumLat = 0
-        for (const [lon, lat] of ring) { sumLon += lon; sumLat += lat }
-        centroid = { lat: sumLat / ring.length, lon: sumLon / ring.length }
-        break
+          map.set(n, f)
+        }
+        featureMapsRef.current[level] = map
       }
-      if (!centroid) return
+      return featureMapsRef.current[level]
+    }, [])
 
-      const phi   = (90 - centroid.lat) * (Math.PI / 180)
-      const theta = (centroid.lon + 180) * (Math.PI / 180)
+    const flyTo = useCallback((countryName: string) => {
+      let feat: GeoFeature | undefined
+      let requiredLevel: 0 | 1 | 2 = 0
+      for (let level = 0; level < 3; level++) {
+        feat = getFeatureMap(level)?.get(countryName)
+        if (feat) { requiredLevel = level as 0 | 1 | 2; break }
+      }
+      if (!feat) return
+
+      const polys = feat.geometry.type === 'Polygon'
+        ? [feat.geometry.coordinates as number[][][]]
+        : feat.geometry.coordinates as number[][][][]
+
+      const extent = largestRingExtent(polys)
+      const phi   = (90 - extent.centerLat) * (Math.PI / 180)
+      const theta = (extent.centerLon + 180) * (Math.PI / 180)
       const targetDir = new THREE.Vector3(
         -Math.sin(phi) * Math.cos(theta),
          Math.cos(phi),
          Math.sin(phi) * Math.sin(theta),
       )
-      animateTo(targetDir, 35)
-    }, [animateTo])
+      const fillFov = fitFovForExtent(angularExtentDeg(extent), CAMERA_DIST)
+      // don't frame further out than where requiredLevel's dataset is guaranteed active
+      const lodBound = requiredLevel === 0 || minLodLevelRef.current >= requiredLevel
+        ? MAX_FOV
+        : LEVELS[requiredLevel - 1].fovMin
+      const targetFov = clamp(Math.min(fillFov, lodBound), REVEAL_MIN_FOV, 35)
+      fovFloorRef.current = REVEAL_MIN_FOV
+      animateTo(targetDir, targetFov)
+    }, [animateTo, getFeatureMap])
 
     const HOME_DIR = new THREE.Vector3(1, 0, 0)
 
     useImperativeHandle(ref, () => ({
-      setFov,
-      reset:            () => animateTo(HOME_DIR, MAX_FOV),
+      setFov: (fov: number) => { fovFloorRef.current = MIN_FOV; setFov(fov) },
+      reset:            () => { fovFloorRef.current = MIN_FOV; animateTo(HOME_DIR, MAX_FOV) },
       flyTo,
       highlightCorrect: (name: string) => setGameHighlight(name, mats.fillCorrect),
       highlightWrong:   (name: string) => setGameHighlight(name, mats.fillWrong),
@@ -394,7 +419,10 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
     }, [])
 
     // Zoom — wheel
-    const zoomByRatio = useCallback((ratio: number) => { setFov(fovRef.current * ratio) }, [setFov])
+    const zoomByRatio = useCallback((ratio: number) => {
+      fovFloorRef.current = MIN_FOV
+      setFov(fovRef.current * ratio)
+    }, [setFov])
 
     useEffect(() => {
       const canvas = gl.domElement
@@ -583,11 +611,12 @@ interface Props {
   initialPosition?: { lat: number; lng: number }
   showLabel?:       boolean
   interactive?:     boolean
+  minLodLevel?:     0 | 1 | 2
 }
 
 export const MultiplayerGlobe = forwardRef<MultiplayerGlobeHandle, Props>(
   function MultiplayerGlobe(
-    { onSelect, onCursorMove, onCameraChange, cursors = [], currentStatus, initialPosition, showLabel = true, interactive = true },
+    { onSelect, onCursorMove, onCameraChange, cursors = [], currentStatus, initialPosition, showLabel = true, interactive = true, minLodLevel = 0 },
     ref,
   ) {
     const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
@@ -681,6 +710,7 @@ export const MultiplayerGlobe = forwardRef<MultiplayerGlobeHandle, Props>(
             cursorRefsMap={cursorRefsMap}
             currentStatus={currentStatus}
             interactive={interactive}
+            minLodLevel={minLodLevel}
           />
         </Canvas>
 

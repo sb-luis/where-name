@@ -1,9 +1,64 @@
 import * as THREE from 'three';
-import type { Polygon } from './types';
+import type { Polygon, Ring } from './types';
 
 export const FILL_RADIUS = 1.0005;
 export const LINE_RADIUS = 1.001;
 const MAX_EDGE_DEG = 2;
+
+export interface RingExtent {
+  minLon: number; maxLon: number;
+  minLat: number; maxLat: number;
+  centerLat: number; centerLon: number;
+}
+
+// Bounding box + vertex-average center of a single ring.
+export function ringExtent(ring: Ring): RingExtent {
+  let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+  let sumLon = 0, sumLat = 0;
+  for (const [lon, lat] of ring) {
+    if (lon < minLon) minLon = lon;
+    if (lon > maxLon) maxLon = lon;
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+    sumLon += lon; sumLat += lat;
+  }
+  return {
+    minLon, maxLon, minLat, maxLat,
+    centerLat: sumLat / ring.length,
+    centerLon: sumLon / ring.length,
+  };
+}
+
+// Picks the largest ring (by vertex count) across a feature's polygons
+// and returns its extent — same ring used for the centroid, so both agree.
+export function largestRingExtent(polys: Polygon[]): RingExtent {
+  let ring = polys[0][0];
+  for (const poly of polys) { if (poly[0].length > ring.length) ring = poly[0]; }
+  return ringExtent(ring);
+}
+
+// Angular size (degrees) of a ring's extent, for FOV framing. Longitude
+// degrees narrow by cos(lat) away from the equator, and spans can wrap
+// the antimeridian, so use the smaller of the raw/wrapped lon span.
+export function angularExtentDeg(extent: RingExtent): number {
+  const latSpan = extent.maxLat - extent.minLat;
+  const rawLonSpan = extent.maxLon - extent.minLon;
+  const lonSpan = Math.min(rawLonSpan, 360 - rawLonSpan);
+  const meanLatRad = extent.centerLat * (Math.PI / 180);
+  const scaledLonSpan = lonSpan * Math.cos(meanLatRad);
+  return Math.max(latSpan, scaledLonSpan);
+}
+
+// FOV (degrees) needed to frame an angular extent (degrees of arc on the
+// unit globe) at CAMERA_DIST, with padding so the country fills ~30% of
+// the viewport height instead of edge-to-edge.
+export function fitFovForExtent(extentDeg: number, cameraDist: number): number {
+  const FILL_FRACTION = 0.05;
+  const worldSpan = extentDeg * (Math.PI / 180); // arc length on unit sphere (R=1)
+  const half = worldSpan / 2 / FILL_FRACTION;
+  const dist = cameraDist - 1; // camera to near surface of globe
+  return 2 * Math.atan(half / dist) * (180 / Math.PI);
+}
 
 export function latLonToVec3(lat: number, lon: number, r: number): THREE.Vector3 {
   const phi   = (90 - lat) * (Math.PI / 180);
