@@ -6,7 +6,8 @@
     "dev": "next dev -p ${PORT:-3000}",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generate:geo-manifest": "node ../../scripts/generate-geo-manifest.mjs"
   },
   "dependencies": {
     "@number-flow/react": "^0.6.0",
