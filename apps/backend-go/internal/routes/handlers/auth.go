@@ -13,11 +13,12 @@ import (
 	"time"
 
 	"github.com/sb-luis/where-name/apps/backend-go/internal/analytics"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/httpx"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/palette"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/pgerr"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/ratelimit"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/utils"
 
 	"github.com/posthog/posthog-go"
 	"golang.org/x/crypto/argon2"
@@ -178,8 +179,8 @@ func ensureAllowedCursorColor(ctx context.Context, s *store.Store, user *store.U
 // --- handlers ---
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	if !h.registerLimiter.Allow(utils.ClientIP(r)) {
-		utils.WriteError(w, http.StatusTooManyRequests, "too many requests, please try again later")
+	if !h.registerLimiter.Allow(httpx.ClientIP(r)) {
+		httpx.WriteError(w, http.StatusTooManyRequests, "too many requests, please try again later")
 		return
 	}
 
@@ -190,38 +191,38 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		// (e.g. "explore", "customize_practice", "practice_results").
 		AnalyticsContext string `json:"context"`
 	}
-	if err := utils.ReadBody(w, r, &body); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "invalid request body")
+	if err := httpx.ReadBody(w, r, &body); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 	if err := validateUsername(body.Username); err != nil {
-		utils.WriteError(w, http.StatusUnprocessableEntity, err.Error())
+		httpx.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 	if err := validatePassword(body.Password); err != nil {
-		utils.WriteError(w, http.StatusUnprocessableEntity, err.Error())
+		httpx.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 
 	hash, err := hashPassword(body.Password)
 	if err != nil {
-		utils.WriteInternalError(w, err, "hash password")
+		httpx.WriteInternalError(w, err, "hash password")
 		return
 	}
 
 	user, err := h.store.CreateUser(r.Context(), body.Username, hash, palette.Random())
 	if err != nil {
-		if utils.IsUniqueViolation(err) {
-			utils.WriteError(w, http.StatusConflict, "username already taken")
+		if pgerr.IsUniqueViolation(err) {
+			httpx.WriteError(w, http.StatusConflict, "username already taken")
 			return
 		}
-		utils.WriteInternalError(w, err, "create user")
+		httpx.WriteInternalError(w, err, "create user")
 		return
 	}
 
 	sess, err := h.store.CreateSession(r.Context(), user.ID, sessionTTL)
 	if err != nil {
-		utils.WriteInternalError(w, err, "create session")
+		httpx.WriteInternalError(w, err, "create session")
 		return
 	}
 
@@ -230,12 +231,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	analytics.Capture(analytics.DistinctID(user.ID), "signup_completed", posthog.NewProperties().
 		Set("context", body.AnalyticsContext))
 
-	utils.WriteJSON(w, http.StatusCreated, userJSON(user))
+	httpx.WriteJSON(w, http.StatusCreated, userJSON(user))
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	if !h.loginLimiter.Allow(utils.ClientIP(r)) {
-		utils.WriteError(w, http.StatusTooManyRequests, "too many requests, please try again later")
+	if !h.loginLimiter.Allow(httpx.ClientIP(r)) {
+		httpx.WriteError(w, http.StatusTooManyRequests, "too many requests, please try again later")
 		return
 	}
 
@@ -243,46 +244,46 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
-	if err := utils.ReadBody(w, r, &body); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "invalid request body")
+	if err := httpx.ReadBody(w, r, &body); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 	if len(body.Password) > maxPasswordBytes {
 		// No real password can exceed this — reject before Argon2 ever runs,
 		// same generic error as a wrong password so it leaks nothing.
-		utils.WriteError(w, http.StatusUnauthorized, "invalid username or password")
+		httpx.WriteError(w, http.StatusUnauthorized, "invalid username or password")
 		return
 	}
 
 	user, err := h.store.GetUserByUsername(r.Context(), body.Username)
 	if errors.Is(err, store.ErrNotFound) {
-		utils.WriteError(w, http.StatusUnauthorized, "invalid username or password")
+		httpx.WriteError(w, http.StatusUnauthorized, "invalid username or password")
 		return
 	}
 	if err != nil {
-		utils.WriteInternalError(w, err, "get user by username")
+		httpx.WriteInternalError(w, err, "get user by username")
 		return
 	}
 
 	ok, err := verifyPassword(body.Password, user.PasswordHash)
 	if err != nil || !ok {
-		utils.WriteError(w, http.StatusUnauthorized, "invalid username or password")
+		httpx.WriteError(w, http.StatusUnauthorized, "invalid username or password")
 		return
 	}
 
 	if err := ensureAllowedCursorColor(r.Context(), h.store, &user); err != nil {
-		utils.WriteInternalError(w, err, "ensure allowed cursor color")
+		httpx.WriteInternalError(w, err, "ensure allowed cursor color")
 		return
 	}
 
 	sess, err := h.store.CreateSession(r.Context(), user.ID, sessionTTL)
 	if err != nil {
-		utils.WriteInternalError(w, err, "create session")
+		httpx.WriteInternalError(w, err, "create session")
 		return
 	}
 
 	h.setSessionCookie(w, sess.ID, sess.ExpiresAt)
-	utils.WriteJSON(w, http.StatusOK, userJSON(user))
+	httpx.WriteJSON(w, http.StatusOK, userJSON(user))
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -296,20 +297,20 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	user, ok := middleware.UserFromCtx(r.Context())
 	if !ok {
-		utils.WriteError(w, http.StatusUnauthorized, "not authenticated")
+		httpx.WriteError(w, http.StatusUnauthorized, "not authenticated")
 		return
 	}
 	if err := ensureAllowedCursorColor(r.Context(), h.store, user); err != nil {
-		utils.WriteInternalError(w, err, "ensure allowed cursor color")
+		httpx.WriteInternalError(w, err, "ensure allowed cursor color")
 		return
 	}
-	utils.WriteJSON(w, http.StatusOK, userJSON(*user))
+	httpx.WriteJSON(w, http.StatusOK, userJSON(*user))
 }
 
 func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	user, ok := middleware.UserFromCtx(r.Context())
 	if !ok {
-		utils.WriteError(w, http.StatusUnauthorized, "not authenticated")
+		httpx.WriteError(w, http.StatusUnauthorized, "not authenticated")
 		return
 	}
 
@@ -319,22 +320,22 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		NewPassword     *string `json:"new_password"`
 		CursorColor     *string `json:"cursor_color"`
 	}
-	if err := utils.ReadBody(w, r, &body); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "invalid request body")
+	if err := httpx.ReadBody(w, r, &body); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if body.Username != nil {
 		if err := validateUsername(*body.Username); err != nil {
-			utils.WriteError(w, http.StatusUnprocessableEntity, err.Error())
+			httpx.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 		if err := h.store.UpdateUsername(r.Context(), user.ID, *body.Username); err != nil {
-			if utils.IsUniqueViolation(err) {
-				utils.WriteError(w, http.StatusConflict, "username already taken")
+			if pgerr.IsUniqueViolation(err) {
+				httpx.WriteError(w, http.StatusConflict, "username already taken")
 				return
 			}
-			utils.WriteInternalError(w, err, "update username")
+			httpx.WriteInternalError(w, err, "update username")
 			return
 		}
 		user.Username = *body.Username
@@ -342,45 +343,45 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 
 	if body.NewPassword != nil {
 		if body.CurrentPassword == nil {
-			utils.WriteError(w, http.StatusUnprocessableEntity, "current_password is required to set a new password")
+			httpx.WriteError(w, http.StatusUnprocessableEntity, "current_password is required to set a new password")
 			return
 		}
 		if err := validatePassword(*body.NewPassword); err != nil {
-			utils.WriteError(w, http.StatusUnprocessableEntity, err.Error())
+			httpx.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 		fresh, err := h.store.GetUserByID(r.Context(), user.ID)
 		if err != nil {
-			utils.WriteInternalError(w, err, "get user by id")
+			httpx.WriteInternalError(w, err, "get user by id")
 			return
 		}
 		ok, err := verifyPassword(*body.CurrentPassword, fresh.PasswordHash)
 		if err != nil || !ok {
-			utils.WriteError(w, http.StatusUnauthorized, "current password is incorrect")
+			httpx.WriteError(w, http.StatusUnauthorized, "current password is incorrect")
 			return
 		}
 		hash, err := hashPassword(*body.NewPassword)
 		if err != nil {
-			utils.WriteInternalError(w, err, "hash password")
+			httpx.WriteInternalError(w, err, "hash password")
 			return
 		}
 		if err := h.store.UpdatePasswordHash(r.Context(), user.ID, hash); err != nil {
-			utils.WriteInternalError(w, err, "update password hash")
+			httpx.WriteInternalError(w, err, "update password hash")
 			return
 		}
 	}
 
 	if body.CursorColor != nil {
 		if !palette.Allowed(*body.CursorColor) {
-			utils.WriteError(w, http.StatusUnprocessableEntity, "invalid cursor color")
+			httpx.WriteError(w, http.StatusUnprocessableEntity, "invalid cursor color")
 			return
 		}
 		if err := h.store.UpdateCursorColor(r.Context(), user.ID, *body.CursorColor); err != nil {
-			utils.WriteInternalError(w, err, "update cursor color")
+			httpx.WriteInternalError(w, err, "update cursor color")
 			return
 		}
 		user.CursorColor = *body.CursorColor
 	}
 
-	utils.WriteJSON(w, http.StatusOK, userJSON(*user))
+	httpx.WriteJSON(w, http.StatusOK, userJSON(*user))
 }

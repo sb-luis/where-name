@@ -5,7 +5,7 @@ import (
 
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/utils"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/httpx"
 )
 
 type StatsHandler struct {
@@ -19,19 +19,19 @@ func NewStatsHandler(s *store.Store) *StatsHandler {
 func (h *StatsHandler) GetPracticeStats(w http.ResponseWriter, r *http.Request) {
 	user, ok := middleware.UserFromCtx(r.Context())
 	if !ok {
-		utils.WriteError(w, http.StatusUnauthorized, "not authenticated")
+		httpx.WriteError(w, http.StatusUnauthorized, "not authenticated")
 		return
 	}
 
 	variant := r.URL.Query().Get("variant")
 	if variant == "" {
-		utils.WriteError(w, http.StatusUnprocessableEntity, "variant is required")
+		httpx.WriteError(w, http.StatusUnprocessableEntity, "variant is required")
 		return
 	}
 
 	stats, err := h.store.GetPracticeStats(r.Context(), user.ID, variant)
 	if err != nil {
-		utils.WriteInternalError(w, err, "get practice stats")
+		httpx.WriteInternalError(w, err, "get practice stats")
 		return
 	}
 
@@ -54,7 +54,7 @@ func (h *StatsHandler) GetPracticeStats(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"games_played":    stats.GamesPlayed,
 		"games_completed": stats.GamesCompleted,
 		"countries":       countries,
@@ -64,17 +64,17 @@ func (h *StatsHandler) GetPracticeStats(w http.ResponseWriter, r *http.Request) 
 func (h *StatsHandler) GetProfileStats(w http.ResponseWriter, r *http.Request) {
 	user, ok := middleware.UserFromCtx(r.Context())
 	if !ok {
-		utils.WriteError(w, http.StatusUnauthorized, "not authenticated")
+		httpx.WriteError(w, http.StatusUnauthorized, "not authenticated")
 		return
 	}
 
 	stats, err := h.store.GetProfileStats(r.Context(), user.ID)
 	if err != nil {
-		utils.WriteInternalError(w, err, "get profile stats")
+		httpx.WriteInternalError(w, err, "get profile stats")
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"games_played":    stats.GamesPlayed,
 		"games_completed": stats.GamesCompleted,
 		"current_streak":  stats.CurrentStreak,

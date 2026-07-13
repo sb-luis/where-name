@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/sb-luis/where-name/apps/backend-go/internal/utils"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/id"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -22,7 +22,7 @@ type Session struct {
 
 func (s *Store) CreateSession(ctx context.Context, userID int64, ttl time.Duration) (Session, error) {
 	// 32 bytes (256 bits) so the session token is infeasible to guess or brute-force.
-	token, err := utils.RandomHex(32)
+	token, err := id.RandomHex(32)
 	if err != nil {
 		return Session{}, fmt.Errorf("generate token: %w", err)
 	}

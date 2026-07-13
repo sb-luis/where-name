@@ -11,7 +11,7 @@ import (
 	"github.com/sb-luis/where-name/apps/backend-go/internal/geo"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/utils"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/httpx"
 
 	"github.com/posthog/posthog-go"
 )
@@ -80,17 +80,17 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		SkipAnalytics bool         `json:"skip_analytics"`
 		Rounds        []roundInput `json:"rounds"`
 	}
-	if err := utils.ReadBodyLarge(w, r, &body); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "invalid request body")
+	if err := httpx.ReadBodyLarge(w, r, &body); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 	if err := validateVariant(body.Variant); err != nil {
-		utils.WriteError(w, http.StatusUnprocessableEntity, err.Error())
+		httpx.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 	rounds, correct, wrong, skipped, err := validateRounds(body.Rounds)
 	if err != nil {
-		utils.WriteError(w, http.StatusUnprocessableEntity, err.Error())
+		httpx.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 
@@ -109,7 +109,7 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !authenticated {
-		utils.WriteJSON(w, http.StatusOK, map[string]any{"saved": false})
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"saved": false})
 		return
 	}
 
@@ -117,20 +117,20 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 
 	if difficulty != "easy" {
 		if err := h.checkDifficultyUnlocked(r.Context(), user.ID, difficulty, body.Rounds); err != nil {
-			utils.WriteError(w, http.StatusUnprocessableEntity, err.Error())
+			httpx.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 	}
 
 	alreadyPlayedToday, err := h.store.HasPlayedToday(r.Context(), user.ID)
 	if err != nil {
-		utils.WriteInternalError(w, err, "check play history")
+		httpx.WriteInternalError(w, err, "check play history")
 		return
 	}
 
 	game, err := h.store.CreatePracticeGame(r.Context(), user.ID, body.Variant, body.Completed, body.DurationMs, rounds)
 	if err != nil {
-		utils.WriteInternalError(w, err, "create practice game")
+		httpx.WriteInternalError(w, err, "create practice game")
 		return
 	}
 
@@ -170,7 +170,7 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	}
 	resp["new_achievements"] = newAchievements
 
-	utils.WriteJSON(w, http.StatusCreated, resp)
+	httpx.WriteJSON(w, http.StatusCreated, resp)
 }
 
 // checkDifficultyUnlocked reports an error if any continent present in the

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/sb-luis/where-name/apps/backend-go/internal/palette"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/utils"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/id"
 
 	"github.com/coder/websocket"
 	"golang.org/x/time/rate"
@@ -30,7 +30,7 @@ type ConnectParams struct {
 // client, starts its write/keepalive goroutines, and then blocks in the
 // read pump until the connection closes.
 func (h *Hub) HandleConnection(ctx context.Context, conn *websocket.Conn, p ConnectParams) {
-	id, err := utils.RandomHex(8)
+	id, err := id.RandomHex(8)
 	if err != nil {
 		log.Printf("generate visitor id: %v", err)
 		conn.Close(websocket.StatusInternalError, "")

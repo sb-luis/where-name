@@ -8,7 +8,7 @@ import (
 	"github.com/sb-luis/where-name/apps/backend-go/internal/geo"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/utils"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/httpx"
 )
 
 type AchievementsHandler struct {
@@ -27,7 +27,7 @@ func (h *AchievementsHandler) GetAchievements(w http.ResponseWriter, r *http.Req
 		var err error
 		earned, err = h.store.GetUserAchievements(r.Context(), user.ID)
 		if err != nil {
-			utils.WriteInternalError(w, err, "get user achievements")
+			httpx.WriteInternalError(w, err, "get user achievements")
 			return
 		}
 	}
@@ -64,7 +64,7 @@ func (h *AchievementsHandler) GetAchievements(w http.ResponseWriter, r *http.Req
 		out[i] = a
 	}
 
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"manifest_version": geo.Version(),
 		"achievements":     out,
 		"unlocks":          achievements.UnlockLevels(earnedSet),
