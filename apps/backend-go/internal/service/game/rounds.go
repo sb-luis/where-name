@@ -1,6 +1,4 @@
-// Package practice holds domain logic for practice games: validating
-// submitted round outcomes and checking difficulty-unlock rules.
-package practice
+package game
 
 import (
 	"context"
@@ -53,7 +51,7 @@ func ValidateRounds(rounds []RoundInput) (params []store.CreatePracticeRoundPara
 // CheckDifficultyUnlocked reports an error if any continent present in the
 // submitted rounds is not yet unlocked at the requested difficulty for this
 // user.
-func CheckDifficultyUnlocked(ctx context.Context, s *store.Store, userID int64, difficulty string, rounds []RoundInput) error {
+func CheckDifficultyUnlocked(ctx context.Context, s Store, userID int64, difficulty string, rounds []RoundInput) error {
 	earned, err := s.GetUserAchievements(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("check achievements: %w", err)

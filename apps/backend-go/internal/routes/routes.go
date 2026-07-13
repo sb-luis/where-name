@@ -6,6 +6,7 @@ import (
 	"github.com/sb-luis/where-name/apps/backend-go/internal/realtime"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/handlers"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/service/game"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
 )
 
@@ -15,8 +16,10 @@ type RoutesConfig struct {
 }
 
 func RegisterRoutes(mux *http.ServeMux, s *store.Store, wsHub *realtime.Hub, cfg RoutesConfig) {
+	gameSvc := game.New(s)
+
 	auth := handlers.NewAuthHandler(s, cfg.CookieSecure)
-	practice := handlers.NewPracticeHandler(s)
+	practice := handlers.NewPracticeHandler(gameSvc)
 	stats := handlers.NewStatsHandler(s)
 	achievementsHandler := handlers.NewAchievementsHandler(s)
 	ws := handlers.NewWSHandler(wsHub, s, cfg.AllowedOrigins)
