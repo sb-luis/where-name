@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,9 +8,10 @@ import (
 	"github.com/sb-luis/where-name/apps/backend-go/internal/achievements"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/analytics"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/geo"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/httpx"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/practice"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/httpx"
 
 	"github.com/posthog/posthog-go"
 )
@@ -24,14 +24,6 @@ func NewPracticeHandler(s *store.Store) *PracticeHandler {
 	return &PracticeHandler{store: s}
 }
 
-type roundInput struct {
-	Position   int16  `json:"position"`
-	Feature    string `json:"feature"`
-	Attempt    int16  `json:"attempt"`
-	Outcome    string `json:"outcome"`
-	DurationMs int64  `json:"duration_ms"`
-}
-
 func validateVariant(variant string) error {
 	if _, ok := geo.DifficultyForVariant(variant); !ok {
 		return fmt.Errorf("variant must be one of the known map variants")
@@ -39,46 +31,16 @@ func validateVariant(variant string) error {
 	return nil
 }
 
-// validateRounds checks each round's outcome and tallies correct/wrong/skipped
-// counts, converting to store params in the same pass.
-func validateRounds(rounds []roundInput) (params []store.CreatePracticeRoundParams, correct, wrong, skipped int, err error) {
-	if len(rounds) == 0 {
-		return nil, 0, 0, 0, fmt.Errorf("rounds must not be empty")
-	}
-
-	params = make([]store.CreatePracticeRoundParams, len(rounds))
-	for i, r := range rounds {
-		switch r.Outcome {
-		case "correct":
-			correct++
-		case "wrong":
-			wrong++
-		case "skipped":
-			skipped++
-		default:
-			return nil, 0, 0, 0, fmt.Errorf("outcome must be 'correct', 'wrong', or 'skipped'")
-		}
-		params[i] = store.CreatePracticeRoundParams{
-			Position:   r.Position,
-			Feature:    r.Feature,
-			Attempt:    r.Attempt,
-			Outcome:    r.Outcome,
-			DurationMs: r.DurationMs,
-		}
-	}
-	return params, correct, wrong, skipped, nil
-}
-
 func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	user, authenticated := middleware.UserFromCtx(r.Context())
 
 	var body struct {
-		Variant       string       `json:"variant"`
-		Completed     bool         `json:"completed"`
-		DurationMs    int64        `json:"duration_ms"`
-		DistinctId    string       `json:"distinct_id"`
-		SkipAnalytics bool         `json:"skip_analytics"`
-		Rounds        []roundInput `json:"rounds"`
+		Variant       string                `json:"variant"`
+		Completed     bool                  `json:"completed"`
+		DurationMs    int64                 `json:"duration_ms"`
+		DistinctId    string                `json:"distinct_id"`
+		SkipAnalytics bool                  `json:"skip_analytics"`
+		Rounds        []practice.RoundInput `json:"rounds"`
 	}
 	if err := httpx.ReadBodyLarge(w, r, &body); err != nil {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid request body")
@@ -88,7 +50,7 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
-	rounds, correct, wrong, skipped, err := validateRounds(body.Rounds)
+	rounds, correct, wrong, skipped, err := practice.ValidateRounds(body.Rounds)
 	if err != nil {
 		httpx.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 		return
@@ -116,7 +78,7 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	difficulty, _ := geo.DifficultyForVariant(body.Variant)
 
 	if difficulty != "easy" {
-		if err := h.checkDifficultyUnlocked(r.Context(), user.ID, difficulty, body.Rounds); err != nil {
+		if err := practice.CheckDifficultyUnlocked(r.Context(), h.store, user.ID, difficulty, body.Rounds); err != nil {
 			httpx.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
@@ -171,30 +133,4 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	resp["new_achievements"] = newAchievements
 
 	httpx.WriteJSON(w, http.StatusCreated, resp)
-}
-
-// checkDifficultyUnlocked reports an error if any continent present in the
-// submitted rounds is not yet unlocked at the requested difficulty for this
-// user.
-func (h *PracticeHandler) checkDifficultyUnlocked(ctx context.Context, userID int64, difficulty string, rounds []roundInput) error {
-	earned, err := h.store.GetUserAchievements(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("check achievements: %w", err)
-	}
-	earnedSet := make(map[string]bool, len(earned))
-	for slug := range earned {
-		earnedSet[slug] = true
-	}
-	unlocks := achievements.UnlockLevels(earnedSet)
-
-	for _, round := range rounds {
-		continent, ok := geo.ContinentOf(difficulty, round.Feature)
-		if !ok {
-			continue
-		}
-		if achievements.DifficultyRank(unlocks[continent]) < achievements.DifficultyRank(difficulty) {
-			return fmt.Errorf("difficulty locked for selected continents")
-		}
-	}
-	return nil
 }
