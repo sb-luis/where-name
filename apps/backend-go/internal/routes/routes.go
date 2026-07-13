@@ -3,17 +3,23 @@ package routes
 import (
 	"net/http"
 
+	"github.com/sb-luis/where-name/apps/backend-go/internal/realtime"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/handlers"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
 )
 
-func Register(mux *http.ServeMux, s *store.Store, hub *handlers.Hub, allowedOrigins []string, cookieSecure bool) {
-	auth := handlers.NewAuthHandler(s, cookieSecure)
+type RoutesConfig struct {
+	AllowedOrigins []string
+	CookieSecure   bool
+}
+
+func RegisterRoutes(mux *http.ServeMux, s *store.Store, wsHub *realtime.Hub, cfg RoutesConfig) {
+	auth := handlers.NewAuthHandler(s, cfg.CookieSecure)
 	practice := handlers.NewPracticeHandler(s)
 	stats := handlers.NewStatsHandler(s)
 	achievementsHandler := handlers.NewAchievementsHandler(s)
-	ws := handlers.NewWSHandler(hub, s, allowedOrigins)
+	ws := handlers.NewWSHandler(wsHub, s, cfg.AllowedOrigins)
 
 	authMiddleware := middleware.Auth(s)
 
