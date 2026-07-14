@@ -3,12 +3,9 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/sb-luis/where-name/apps/backend-go/internal/errorsx"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
@@ -213,7 +210,7 @@ func TestRegisterInvalidPassword(t *testing.T) {
 func TestRegisterUsernameConflict(t *testing.T) {
 	fake := &fakeStore{
 		createUserFn: func(ctx context.Context, username, passwordHash, cursorColor string) (store.User, error) {
-			return store.User{}, fmt.Errorf("insert: %w", &pgconn.PgError{Code: "23505"})
+			return store.User{}, store.ErrUniqueViolation
 		},
 	}
 	svc := New(fake)
@@ -413,7 +410,7 @@ func TestLogoutCallsDeleteSessionAndIgnoresError(t *testing.T) {
 func TestUpdateMeUsernameConflict(t *testing.T) {
 	fake := &fakeStore{
 		updateUsernameFn: func(ctx context.Context, userID int64, username string) error {
-			return fmt.Errorf("update: %w", &pgconn.PgError{Code: "23505"})
+			return store.ErrUniqueViolation
 		},
 	}
 	svc := New(fake)

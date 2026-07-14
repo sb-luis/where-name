@@ -11,7 +11,14 @@ import (
 	"github.com/sb-luis/where-name/apps/backend-go/internal/id"
 )
 
-var ErrNotFound = errors.New("not found")
+var (
+	// ErrNotFound is returned when a queried row doesn't exist.
+	ErrNotFound = errors.New("not found")
+	// ErrUniqueViolation is returned when a write violates a unique
+	// constraint (e.g. a taken username). Callers match it with errors.Is
+	// rather than inspecting the underlying driver error.
+	ErrUniqueViolation = errors.New("unique violation")
+)
 
 type Session struct {
 	ID        string

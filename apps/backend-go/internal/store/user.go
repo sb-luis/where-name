@@ -7,7 +7,16 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
+
+// isUniqueViolation reports whether err is a Postgres unique-constraint
+// violation (SQLSTATE 23505). It keeps the driver-specific detection contained
+// in the store so callers can rely on the ErrUniqueViolation sentinel instead.
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
 
 type User struct {
 	ID           int64
@@ -26,6 +35,9 @@ func (s *Store) CreateUser(ctx context.Context, username, passwordHash, cursorCo
 		RETURNING id, username, password_hash, cursor_color, created_at, updated_at
 	`, username, passwordHash, cursorColor).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.CursorColor, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return User{}, ErrUniqueViolation
+		}
 		return User{}, fmt.Errorf("create user: %w", err)
 	}
 	return u, nil
@@ -65,6 +77,9 @@ func (s *Store) UpdateUsername(ctx context.Context, userID int64, username strin
 	_, err := s.db.Exec(ctx, `
 		UPDATE users SET username = $1, updated_at = now() WHERE id = $2
 	`, username, userID)
+	if isUniqueViolation(err) {
+		return ErrUniqueViolation
+	}
 	return err
 }
 

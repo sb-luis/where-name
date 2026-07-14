@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/sb-luis/where-name/apps/backend-go/internal/errorsx"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/pgerr"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
 
 	"golang.org/x/crypto/argon2"
@@ -132,7 +131,7 @@ func (s *Service) Register(ctx context.Context, username, password, cursorColor 
 
 	u, err := s.store.CreateUser(ctx, username, hash, cursorColor)
 	if err != nil {
-		if pgerr.IsUniqueViolation(err) {
+		if errors.Is(err, store.ErrUniqueViolation) {
 			return store.User{}, store.Session{}, &errorsx.ConflictError{Msg: "username already taken"}
 		}
 		return store.User{}, store.Session{}, &errorsx.InternalError{Context: "create user", Err: err}
@@ -197,7 +196,7 @@ func (s *Service) UpdateMe(ctx context.Context, u *store.User, in UpdateMeInput)
 			return &errorsx.ValidationError{Msg: err.Error()}
 		}
 		if err := s.store.UpdateUsername(ctx, u.ID, *in.Username); err != nil {
-			if pgerr.IsUniqueViolation(err) {
+			if errors.Is(err, store.ErrUniqueViolation) {
 				return &errorsx.ConflictError{Msg: "username already taken"}
 			}
 			return &errorsx.InternalError{Context: "update username", Err: err}
