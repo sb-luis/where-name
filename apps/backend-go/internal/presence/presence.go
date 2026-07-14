@@ -1,6 +1,6 @@
-// Package palette owns the curated set of cursor colors shared by
+// Package presence owns the curated set of cursor colors shared by
 // authenticated users and anonymous multiplayer visitors.
-package palette
+package presence
 
 import "crypto/rand"
 

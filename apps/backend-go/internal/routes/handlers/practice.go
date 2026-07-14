@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -62,16 +61,7 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		Rounds:        body.Rounds,
 	})
 	if err != nil {
-		var ve *game.ValidationError
-		var ie *game.InternalError
-		switch {
-		case errors.As(err, &ve):
-			httpx.WriteError(w, http.StatusUnprocessableEntity, ve.Msg)
-		case errors.As(err, &ie):
-			httpx.WriteInternalError(w, ie.Err, ie.Context)
-		default:
-			httpx.WriteInternalError(w, err, "create game")
-		}
+		writeServiceError(w, err, "create game")
 		return
 	}
 

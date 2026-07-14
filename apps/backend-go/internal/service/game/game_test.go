@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sb-luis/where-name/apps/backend-go/internal/achievements"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/errorsx"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/geo"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
 )
@@ -68,7 +69,7 @@ func TestCreateGameRejectsInvalidRounds(t *testing.T) {
 		Rounds:        nil, // empty rounds is rejected by ValidateRounds
 	})
 
-	var ve *ValidationError
+	var ve *errorsx.ValidationError
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected a *ValidationError, got %v (%T)", err, err)
 	}

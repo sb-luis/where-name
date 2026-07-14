@@ -11,6 +11,7 @@ import (
 
 	"github.com/sb-luis/where-name/apps/backend-go/internal/achievements"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/analytics"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/errorsx"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/geo"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
 
@@ -77,7 +78,7 @@ type Result struct {
 func (s *Service) CreateGame(ctx context.Context, in Input) (Result, error) {
 	rounds, correct, wrong, skipped, err := ValidateRounds(in.Rounds)
 	if err != nil {
-		return Result{}, &ValidationError{Msg: err.Error()}
+		return Result{}, &errorsx.ValidationError{Msg: err.Error()}
 	}
 
 	if !in.SkipAnalytics {
@@ -102,18 +103,18 @@ func (s *Service) CreateGame(ctx context.Context, in Input) (Result, error) {
 
 	if difficulty != "easy" {
 		if err := CheckDifficultyUnlocked(ctx, s.store, in.UserID, difficulty, in.Rounds); err != nil {
-			return Result{}, &ValidationError{Msg: err.Error()}
+			return Result{}, &errorsx.ValidationError{Msg: err.Error()}
 		}
 	}
 
 	alreadyPlayedToday, err := s.store.HasPlayedToday(ctx, in.UserID)
 	if err != nil {
-		return Result{}, &InternalError{Context: "check play history", Err: err}
+		return Result{}, &errorsx.InternalError{Context: "check play history", Err: err}
 	}
 
 	createdGame, err := s.store.CreatePracticeGame(ctx, in.UserID, in.Variant, in.Completed, in.DurationMs, rounds)
 	if err != nil {
-		return Result{}, &InternalError{Context: "create practice game", Err: err}
+		return Result{}, &errorsx.InternalError{Context: "create practice game", Err: err}
 	}
 
 	res := Result{

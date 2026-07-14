@@ -7,8 +7,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/sb-luis/where-name/apps/backend-go/internal/palette"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/id"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/presence"
 
 	"github.com/coder/websocket"
 	"golang.org/x/time/rate"
@@ -40,7 +40,7 @@ func (h *Hub) HandleConnection(ctx context.Context, conn *websocket.Conn, p Conn
 	color := p.Color
 	if !p.Authenticated {
 		idx := h.colorIdx.Add(1) - 1
-		color = palette.Pick(idx)
+		color = presence.Pick(idx)
 	}
 
 	// Authenticated user already has an active connection: ask the new tab
@@ -172,7 +172,7 @@ func (c *client) readPump(ctx context.Context) {
 			c.hub.broadcast(msgVisitorUpdatedAlias(c.id, &alias))
 
 		case "set_color":
-			if !palette.Allowed(msg.Color) {
+			if !presence.Allowed(msg.Color) {
 				continue
 			}
 			c.hub.updateVisitor(c, func(v *Visitor) { v.Color = msg.Color })

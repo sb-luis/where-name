@@ -6,14 +6,14 @@ import (
 
 	"github.com/sb-luis/where-name/apps/backend-go/internal/realtime"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/service/profile"
 
 	"github.com/coder/websocket"
 )
 
 // NewWSHandler upgrades the connection, resolves the caller's identity, then
 // hands off to wsHub for the lifetime of the connection.
-func NewWSHandler(wsHub *realtime.Hub, s *store.Store, allowedOrigins []string) http.HandlerFunc {
+func NewWSHandler(wsHub *realtime.Hub, profileSvc *profile.Service, allowedOrigins []string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 			OriginPatterns: allowedOrigins,
@@ -29,7 +29,7 @@ func NewWSHandler(wsHub *realtime.Hub, s *store.Store, allowedOrigins []string) 
 			uid := user.ID
 			params.UserID = &uid
 			params.Alias = &user.Username
-			if err := ensureAllowedCursorColor(r.Context(), s, user); err != nil {
+			if err := profileSvc.EnsureColor(r.Context(), user); err != nil {
 				log.Printf("ensure allowed cursor color: %v", err)
 			}
 			params.Color = user.CursorColor

@@ -6,7 +6,9 @@ import (
 	"github.com/sb-luis/where-name/apps/backend-go/internal/realtime"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/handlers"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/service/auth"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/service/game"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/service/profile"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
 )
 
@@ -17,12 +19,13 @@ type RoutesConfig struct {
 
 func RegisterRoutes(mux *http.ServeMux, s *store.Store, wsHub *realtime.Hub, cfg RoutesConfig) {
 	gameSvc := game.New(s)
+	authSvc := auth.New(s)
+	profileSvc := profile.New(s)
 
-	auth := handlers.NewAuthHandler(s, cfg.CookieSecure)
+	auth := handlers.NewAuthHandler(authSvc, profileSvc, cfg.CookieSecure)
 	practice := handlers.NewPracticeHandler(gameSvc)
 	stats := handlers.NewStatsHandler(s)
-	achievementsHandler := handlers.NewAchievementsHandler(s)
-	ws := handlers.NewWSHandler(wsHub, s, cfg.AllowedOrigins)
+	achievements := handlers.NewAchievementsHandler(s)
 
 	authMiddleware := middleware.Auth(s)
 
@@ -38,7 +41,9 @@ func RegisterRoutes(mux *http.ServeMux, s *store.Store, wsHub *realtime.Hub, cfg
 	mux.Handle("GET /practice/stats", authMiddleware(http.HandlerFunc(stats.GetPracticeStats)))
 	mux.Handle("GET /stats/profile", authMiddleware(http.HandlerFunc(stats.GetProfileStats)))
 
-	mux.Handle("GET /achievements", authMiddleware(http.HandlerFunc(achievementsHandler.GetAchievements)))
+	mux.Handle("GET /achievements", authMiddleware(http.HandlerFunc(achievements.GetAchievements)))
 
+	// web sockets
+	ws := handlers.NewWSHandler(wsHub, profileSvc, cfg.AllowedOrigins)
 	mux.Handle("GET /ws", authMiddleware(ws))
 }
