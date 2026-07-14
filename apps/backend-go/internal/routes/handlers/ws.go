@@ -6,7 +6,7 @@ import (
 
 	"github.com/sb-luis/where-name/apps/backend-go/internal/realtime"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/service/profile"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/services/profile"
 
 	"github.com/coder/websocket"
 )

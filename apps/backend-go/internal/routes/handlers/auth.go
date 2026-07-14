@@ -8,8 +8,8 @@ import (
 	"github.com/sb-luis/where-name/apps/backend-go/internal/httpx"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/ratelimit"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/service/auth"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/service/profile"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/services/auth"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/services/profile"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
 
 	"github.com/posthog/posthog-go"

@@ -6,9 +6,9 @@ import (
 	"github.com/sb-luis/where-name/apps/backend-go/internal/realtime"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/handlers"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/service/auth"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/service/game"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/service/profile"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/services/auth"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/services/game"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/services/profile"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
 )
 

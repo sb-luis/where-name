@@ -7,7 +7,7 @@ import (
 	"github.com/sb-luis/where-name/apps/backend-go/internal/geo"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/httpx"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/service/game"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/services/game"
 )
 
 type PracticeHandler struct {
