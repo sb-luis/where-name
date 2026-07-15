@@ -14,7 +14,7 @@ export const DIFFICULTY_LOD_LEVEL: Record<Difficulty, 0 | 1 | 2> = {
   hard:   2,
 }
 
-interface GeoManifest {
+export interface GeoManifest {
   version: string
   order: Difficulty[]
   continents: string[]
@@ -51,7 +51,7 @@ export function poolFor(difficulty: Difficulty, continents: readonly Continent[]
 }
 
 // sum of cumulative country counts per continent at each continent's unlocked difficulty
-export function totalUnlocked(unlocks: Record<Continent, Difficulty>): number {
+export function totalUnlocked(unlocks: Partial<Record<Continent, Difficulty>>): number {
   let total = 0
   for (const continent of typedManifest.continents as Continent[]) {
     const difficulty = unlocks[continent] ?? 'easy'

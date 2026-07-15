@@ -16,6 +16,15 @@ export interface SavePracticeGameResult {
   newAchievements?: Achievement[]
 }
 
+// Wire shape returned by POST /practice/games, before mapping to camelCase.
+interface SavePracticeGameResponse {
+  saved: boolean
+  current_streak?: number
+  longest_streak?: number
+  is_first_game_today?: boolean
+  new_achievements?: Achievement[]
+}
+
 export async function savePracticeGame(
   results: RoundResult[],
   elapsedMs: number,
@@ -42,7 +51,7 @@ export async function savePracticeGame(
     }),
   })
   if (!res.ok) throw new Error('Failed to save practice game')
-  const data = await res.json()
+  const data = await res.json() as SavePracticeGameResponse
   return {
     saved:             data.saved,
     currentStreak:     data.current_streak,
