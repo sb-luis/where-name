@@ -6,9 +6,9 @@ import (
 
 	"github.com/sb-luis/where-name/apps/backend-go/internal/achievements"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/geo"
+	"github.com/sb-luis/where-name/apps/backend-go/internal/httpx"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/routes/middleware"
 	"github.com/sb-luis/where-name/apps/backend-go/internal/store"
-	"github.com/sb-luis/where-name/apps/backend-go/internal/httpx"
 )
 
 type AchievementsHandler struct {
