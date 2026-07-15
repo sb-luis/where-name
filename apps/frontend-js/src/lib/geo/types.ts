@@ -1,16 +1,10 @@
-export type Ring = number[][];
-export type Polygon = Ring[];
-export type MultiPolygon = Polygon[];
+import type { Feature, FeatureCollection, Polygon as GeoJsonPolygon, MultiPolygon as GeoJsonMultiPolygon, Position } from 'geojson';
 
-export interface GeoFeature {
-  geometry: {
-    type: 'Polygon' | 'MultiPolygon';
-    coordinates: Polygon | MultiPolygon;
-  };
-  properties: Record<string, string | null | undefined>;
-}
+export type Ring = Position[];
+export type Polygon = Position[][];
+export type MultiPolygon = Position[][][];
 
-export interface GeoCollection {
-  type: 'FeatureCollection';
-  features: GeoFeature[];
-}
+type GeoProperties = Record<string, string | null | undefined>;
+
+export type GeoFeature = Feature<GeoJsonPolygon | GeoJsonMultiPolygon, GeoProperties>;
+export type GeoCollection = FeatureCollection<GeoJsonPolygon | GeoJsonMultiPolygon, GeoProperties>;

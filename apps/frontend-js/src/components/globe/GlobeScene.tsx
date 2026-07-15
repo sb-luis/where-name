@@ -302,8 +302,8 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
       if (!feat) continue;
 
       const polys = feat.geometry.type === 'Polygon'
-        ? [feat.geometry.coordinates as number[][][]]
-        : feat.geometry.coordinates as number[][][][];
+        ? [feat.geometry.coordinates]
+        : feat.geometry.coordinates;
 
       let ring = polys[0][0];
       for (const poly of polys) {

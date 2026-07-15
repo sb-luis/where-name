@@ -316,8 +316,8 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
           if (feat) {
             const name = String(feat.properties?.NAME ?? feat.properties?.ADMIN ?? '')
             const polys = feat.geometry.type === 'Polygon'
-              ? [feat.geometry.coordinates as number[][][]]
-              : feat.geometry.coordinates as number[][][][]
+              ? [feat.geometry.coordinates]
+              : feat.geometry.coordinates
             let ring = polys[0][0]
             for (const poly of polys) { if (poly[0].length > ring.length) ring = poly[0] }
             let sumLon = 0, sumLat = 0

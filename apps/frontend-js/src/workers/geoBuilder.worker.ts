@@ -40,9 +40,8 @@ workerSelf.onmessage = (e: MessageEvent<WorkerRequest>) => {
 
   for (const feature of geojson.features) {
     const name = String(feature.properties?.NAME ?? feature.properties?.ADMIN ?? 'Unknown');
-    const { type, coordinates } = feature.geometry;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const polys = (type === 'Polygon' ? [coordinates] : coordinates) as any[][][];
+    const { geometry } = feature;
+    const polys = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
 
     const fills: FeatureData['fills'] = [];
     const borders: Float32Array[] = [];
@@ -59,8 +58,8 @@ workerSelf.onmessage = (e: MessageEvent<WorkerRequest>) => {
       }
 
       for (const ring of poly) {
-        const arr = new Float32Array((ring as number[][]).length * 3);
-        (ring as number[][]).forEach(([lon, lat], i) => {
+        const arr = new Float32Array(ring.length * 3);
+        ring.forEach(([lon, lat], i) => {
           const [x, y, z] = project(lat, lon, LINE_RADIUS);
           arr[i * 3] = x; arr[i * 3 + 1] = y; arr[i * 3 + 2] = z;
         });

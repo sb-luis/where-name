@@ -385,8 +385,8 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
       if (!feat) return
 
       const polys = feat.geometry.type === 'Polygon'
-        ? [feat.geometry.coordinates as number[][][]]
-        : feat.geometry.coordinates as number[][][][]
+        ? [feat.geometry.coordinates]
+        : feat.geometry.coordinates
 
       const extent = largestRingExtent(polys)
       const phi   = (90 - extent.centerLat) * (Math.PI / 180)

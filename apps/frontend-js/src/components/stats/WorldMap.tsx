@@ -73,7 +73,7 @@ export function WorldMap({ geo, stats }: Props) {
     svg.selectAll('*').remove()
 
     const { w, h } = dims
-    const projection = d3.geoNaturalEarth1().fitSize([w, h], geo as any)
+    const projection = d3.geoNaturalEarth1().fitSize([w, h], geo)
     const path       = d3.geoPath(projection)
     const statMap    = new Map(stats.map(s => [s.feature, s]))
 
@@ -85,16 +85,17 @@ export function WorldMap({ geo, stats }: Props) {
       .selectAll('path')
       .data(geo.features)
       .join('path')
-        .attr('d', f => path(f as any) ?? '')
+        .attr('d', f => path(f) ?? '')
         .attr('fill', f => {
           const name = f.properties?.NAME ?? f.properties?.ADMIN ?? ''
           return countryColor(statMap.get(String(name)))
         })
         .attr('stroke', 'none')
         .style('cursor', 'pointer')
-        .on('mousemove', (event: MouseEvent, f: any) => {
+        .on('mousemove', (event: MouseEvent, f) => {
           const name = String(f.properties?.NAME ?? f.properties?.ADMIN ?? '')
-          const rect = svgRef.current!.getBoundingClientRect()
+          if (!svgRef.current) return
+          const rect = svgRef.current.getBoundingClientRect()
           setTooltip({
             x:    event.clientX - rect.left,
             y:    event.clientY - rect.top,
