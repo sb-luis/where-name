@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import type { ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 
@@ -155,8 +156,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
     minLodLevelRef.current = minLodLevel
 
     const { scene, camera, gl } = useThree()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const controlsRef = useRef<any>(null)
+    const controlsRef = useRef<OrbitControlsImpl>(null)
 
     const mats = useMemo<Materials>(() => ({
       fillDim:     new THREE.MeshBasicMaterial({ color: C_LAND,     side: THREE.DoubleSide }),

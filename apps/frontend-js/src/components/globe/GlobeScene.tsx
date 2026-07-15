@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandl
 import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import type { ThreeEvent } from '@react-three/fiber';
 import { GlobeRefLines } from './GlobeRefLines';
 import { vec3ToLatLon } from '@/lib/geo/geometry';
@@ -86,8 +87,7 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
   const interactiveRef = useRef(interactive);
   interactiveRef.current = interactive;
   const { scene, camera, gl } = useThree();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const controlsRef = useRef<any>(null);
+  const controlsRef = useRef<OrbitControlsImpl>(null);
 
   const mats = useMemo<Materials>(() => ({
     fillDim:     new THREE.MeshBasicMaterial({ color: C_LAND,     side: THREE.DoubleSide }),
