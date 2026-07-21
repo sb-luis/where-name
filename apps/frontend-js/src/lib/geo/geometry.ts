@@ -78,6 +78,13 @@ export function vec3ToLatLon(v: THREE.Vector3): { lat: number; lon: number } {
   return { lat, lon };
 }
 
+// Camera position for orbiting at `dist` above (lat, lng).
+// tuple since @react-three/fiber's `camera.position` prop takes [x, y, z].
+export function latLngToCameraPos(lat: number, lng: number, dist: number): [number, number, number] {
+  const v = latLonToVec3(lat, lng, dist);
+  return [v.x, v.y, v.z];
+}
+
 // Returns raw typed arrays so callers can use them
 // without wrapping in Three.js objects on the compute side.
 export function buildFillData(poly: Polygon): { positions: Float32Array; indices: Uint32Array } {

@@ -16,7 +16,7 @@ import type { ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 
 import { GlobeRefLines } from '@/components/globe/GlobeRefLines'
-import { latLonToVec3, vec3ToLatLon } from '@/lib/geo/geometry'
+import { latLonToVec3, vec3ToLatLon, latLngToCameraPos } from '@/lib/geo/geometry'
 import { pickCountry } from '@/lib/geo/hit-test'
 import { fetchGeo } from '@/lib/geo/fetch'
 import { LEVELS, lodForFov, clamp, CAMERA_DIST, MIN_FOV, MAX_FOV, fovToSlider, sliderToFov } from '@/lib/geo/lod'
@@ -524,13 +524,7 @@ export const ExploreGlobe = forwardRef<ExploreGlobeHandle, Props>(function Explo
 
   const cameraPosition = useMemo<[number, number, number]>(() => {
     if (!initialPosition) return [CAMERA_DIST, 0, 0]
-    const phi   = (90 - initialPosition.lat) * (Math.PI / 180)
-    const theta = (initialPosition.lng + 180) * (Math.PI / 180)
-    return [
-      -Math.sin(phi) * Math.cos(theta) * CAMERA_DIST,
-       Math.cos(phi) * CAMERA_DIST,
-       Math.sin(phi) * Math.sin(theta) * CAMERA_DIST,
-    ]
+    return latLngToCameraPos(initialPosition.lat, initialPosition.lng, CAMERA_DIST)
   }, [initialPosition])
 
   return (
