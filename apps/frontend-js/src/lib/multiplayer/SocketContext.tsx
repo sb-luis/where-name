@@ -75,6 +75,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const suppressReconnect = useRef(false)
   const lastStatus        = useRef<UserStatus | null>(null)
   const autoTakeover      = useRef(false)
+
   // Tracks the user ID from the previous effect run so we can distinguish
   // a user-change (login/logout) from a reconnectKey bump (continueHere).
   const prevUserId        = useRef<number | undefined>(undefined)
