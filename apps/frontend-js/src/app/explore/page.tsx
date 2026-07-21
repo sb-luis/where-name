@@ -32,6 +32,7 @@ export default function ExplorePage() {
         ref={globeRef}
         cursors={cursors}
         currentStatus="explore"
+        initialPosition={initialPosition}
         onCursorMove={emitCursorMove}
         onCameraChange={handleCameraChange}
         onHover={setHoveredCountry}
