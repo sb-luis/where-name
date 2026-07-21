@@ -14,6 +14,7 @@ import * as THREE from 'three'
 
 import { GlobeRefLines } from '@/components/globe/GlobeRefLines'
 import { latLonToVec3, vec3ToLatLon, latLngToCameraPos } from '@/lib/geo/geometry'
+import { globeScreenRadius, clampToGlobeEdge } from '@/lib/geo/camera'
 import { fetchGeo } from '@/lib/geo/fetch'
 import { LEVELS, CAMERA_DIST } from '@/lib/geo/lod'
 import { C_OCEAN, C_LAND } from '@/lib/geo/palette'
@@ -129,9 +130,7 @@ function PresenceScene({
 
   useFrame(() => {
     const pc      = camera as THREE.PerspectiveCamera
-    const vfovRad = pc.fov * Math.PI / 180
-    const ndcR    = 1 / (CAMERA_DIST * Math.tan(vfovRad / 2))
-    const globeR  = ndcR * size.height / 2
+    const globeR  = globeScreenRadius(pc.fov, size.height, CAMERA_DIST)
     const cx      = size.width  / 2
     const cy      = size.height / 2
 
@@ -147,12 +146,7 @@ function PresenceScene({
       let sy = (-tempVec.current.y + 1) / 2 * size.height
 
       if (!isVisible) {
-        const dx = sx - cx, dy = sy - cy
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist > 0) {
-          const r = (globeR * 1.10) / dist
-          sx = cx + dx * r; sy = cy + dy * r
-        }
+        [sx, sy] = clampToGlobeEdge(sx, sy, cx, cy, globeR)
       }
 
       const el = cursorRefsMap.current.get(id)

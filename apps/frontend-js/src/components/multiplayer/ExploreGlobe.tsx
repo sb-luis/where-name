@@ -17,6 +17,7 @@ import * as THREE from 'three'
 
 import { GlobeRefLines } from '@/components/globe/GlobeRefLines'
 import { latLonToVec3, vec3ToLatLon, latLngToCameraPos } from '@/lib/geo/geometry'
+import { easeInOutCubic, orbitControlsTuning, globeScreenRadius, clampToGlobeEdge } from '@/lib/geo/camera'
 import { pickCountry } from '@/lib/geo/hit-test'
 import { fetchGeo } from '@/lib/geo/fetch'
 import { LEVELS, lodForFov, clamp, CAMERA_DIST, MIN_FOV, MAX_FOV, fovToSlider, sliderToFov } from '@/lib/geo/lod'
@@ -210,10 +211,10 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
       pc.fov = f
       pc.updateProjectionMatrix()
 
-      const zoom = 60 / f
       if (controlsRef.current) {
-        controlsRef.current.rotateSpeed   = 0.95 / Math.pow(zoom + 0.5, 1.15)
-        controlsRef.current.dampingFactor = 0.1 + Math.min(zoom / 200, 1) * 0.4
+        const tuning = orbitControlsTuning(f)
+        controlsRef.current.rotateSpeed   = tuning.rotateSpeed
+        controlsRef.current.dampingFactor = tuning.dampingFactor
       }
 
       onFovChangeRef.current?.(f)
@@ -236,7 +237,7 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
 
       const tick = () => {
         const raw = Math.min((performance.now() - start) / 1200, 1)
-        const t   = raw < 0.5 ? 4 * raw ** 3 : 1 - (-2 * raw + 2) ** 3 / 2
+        const t   = easeInOutCubic(raw)
         pc.position.copy(startPos.clone().normalize().lerp(targetDir, t).normalize().multiplyScalar(CAMERA_DIST))
         pc.lookAt(0, 0, 0)
         setFov(clamp(startFov + (targetFov - startFov) * t, MIN_FOV, MAX_FOV))
@@ -368,9 +369,7 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
       camDir.current.copy(camera.position).normalize()
 
       const pc_ = camera as THREE.PerspectiveCamera
-      const vfovRad = pc_.fov * Math.PI / 180
-      const ndcR    = 1 / (CAMERA_DIST * Math.tan(vfovRad / 2))
-      const globeR  = ndcR * size.height / 2
+      const globeR = globeScreenRadius(pc_.fov, size.height, CAMERA_DIST)
       const cx = size.width / 2
       const cy = size.height / 2
 
@@ -383,9 +382,7 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
         let sy = (-tempVec.current.y + 1) / 2 * size.height
 
         if (!facing) {
-          const dx = sx - cx, dy = sy - cy
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist > 0) { sx = cx + dx * (globeR * 1.1) / dist; sy = cy + dy * (globeR * 1.1) / dist }
+          [sx, sy] = clampToGlobeEdge(sx, sy, cx, cy, globeR)
         }
 
         const el = cursorRefsMap.current?.get(id)

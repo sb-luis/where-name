@@ -17,6 +17,7 @@ import * as THREE from 'three'
 
 import { GlobeRefLines } from '@/components/globe/GlobeRefLines'
 import { latLonToVec3, vec3ToLatLon, largestRingExtent, angularExtentDeg, fitFovForExtent, latLngToCameraPos } from '@/lib/geo/geometry'
+import { easeInOutCubic, orbitControlsTuning, globeScreenRadius, clampToGlobeEdge } from '@/lib/geo/camera'
 import { pickCountry } from '@/lib/geo/hit-test'
 import { fetchGeo } from '@/lib/geo/fetch'
 import { LEVELS, lodForFov, clamp, CAMERA_DIST, MIN_FOV, MAX_FOV, REVEAL_MIN_FOV, MIN_ORBITING_FOV, fovToSlider, sliderToFov } from '@/lib/geo/lod'
@@ -310,10 +311,10 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
       pc.fov = f
       pc.updateProjectionMatrix()
 
-      const zoom = 60 / f
       if (controlsRef.current) {
-        controlsRef.current.rotateSpeed   = 0.95 / Math.pow(zoom + 0.5, 1.15)
-        controlsRef.current.dampingFactor = 0.1 + Math.min(zoom / 200, 1) * 0.4
+        const tuning = orbitControlsTuning(f)
+        controlsRef.current.rotateSpeed   = tuning.rotateSpeed
+        controlsRef.current.dampingFactor = tuning.dampingFactor
       }
 
       onFovChangeRef.current?.(f)
@@ -335,11 +336,9 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
       const controls  = controlsRef.current
       if (controls) controls.enabled = false
 
-      const ease = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
-
       const tick = () => {
         const raw  = Math.min((performance.now() - startTime) / duration, 1)
-        const tArc = ease(raw)
+        const tArc = easeInOutCubic(raw)
 
         const dir = startPos.clone().normalize().lerp(targetDir, tArc).normalize()
         pc.position.copy(dir.multiplyScalar(CAMERA_DIST))
@@ -347,8 +346,8 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
 
         // pull back to peakFov in the first half, settle onto targetFov in the second — keeps travel zoomed out
         const fov = raw < 0.5
-          ? startFov + (peakFov - startFov) * ease(raw * 2)
-          : peakFov + (targetFov - peakFov) * ease((raw - 0.5) * 2)
+          ? startFov + (peakFov - startFov) * easeInOutCubic(raw * 2)
+          : peakFov + (targetFov - peakFov) * easeInOutCubic((raw - 0.5) * 2)
         setFov(clamp(fov, fovFloorRef.current, MAX_FOV))
 
         if (raw < 1) {
@@ -509,9 +508,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
 
     useFrame(({ size }) => {
       const pc_ = camera as THREE.PerspectiveCamera
-      const vfovRad = pc_.fov * Math.PI / 180
-      const ndcR    = 1 / (CAMERA_DIST * Math.tan(vfovRad / 2))
-      const globeR  = ndcR * size.height / 2
+      const globeR = globeScreenRadius(pc_.fov, size.height, CAMERA_DIST)
       const cx = size.width / 2
       const cy = size.height / 2
 
@@ -526,13 +523,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
         let sy = (-tempVec.current.y + 1) / 2 * size.height
 
         if (!isVisible) {
-          const dx = sx - cx, dy = sy - cy
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist > 0) {
-            const r = (globeR * 1.10) / dist
-            sx = cx + dx * r
-            sy = cy + dy * r
-          }
+          [sx, sy] = clampToGlobeEdge(sx, sy, cx, cy, globeR)
         }
 
         const el = cursorRefsMap.current.get(id)
