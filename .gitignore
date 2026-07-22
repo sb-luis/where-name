@@ -1,11 +1,12 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# claude
+# LLMs 
+/**/CLAUDE.md
+/**/AGENTS.md
 .claude
-CLAUDE.md
 
-# plan
-PLAN.md
+# notes 
+notes/
 
 # dependencies
 /node_modules
@@ -47,5 +48,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-notes/
