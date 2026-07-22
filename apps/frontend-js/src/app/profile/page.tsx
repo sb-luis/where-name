@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react'
 import { z } from 'zod'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth/AuthContext'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { Alert } from '@/components/ui/Alert'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { StatCards } from '@/components/stats/StatCards'
@@ -18,6 +16,9 @@ import type { Achievement } from '@/lib/achievements/types'
 import { LEVELS } from '@/lib/geo/lod'
 import type { CountryStat } from '@/components/stats/WorldMap'
 import type { GeoCollection } from '@/lib/geo/types'
+import { AliasForm } from '@/components/profile/AliasForm'
+import { PasswordForm } from '@/components/profile/PasswordForm'
+import { CursorColorForm } from '@/components/profile/CursorColorForm'
 
 const VARIANT = 'ne_110m_admin_0_countries'
 
@@ -43,17 +44,6 @@ const profileStatsSchema = z.object({
   longest_streak:  z.number(),
 })
 type ProfileStats = z.infer<typeof profileStatsSchema>
-
-export const COLOR_PALETTE = [
-  '#ef4444', '#f97316', '#f59e0b',
-  '#eab308', '#84cc16', '#22c55e',
-  '#10b981', '#14b8a6', '#06b6d4',
-  '#0ea5e9', '#3b82f6', '#6366f1',
-  '#8b5cf6', '#a855f7', '#d946ef',
-  '#ec4899', '#f43f5e', '#64748b',
-]
-
-type Msg = { ok: boolean; text: string }
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -142,72 +132,20 @@ export default function ProfilePage() {
   const [openSection, setOpenSection] = useState<'alias' | 'password' | 'cursor' | 'achievements' | null>(null)
   const toggle = (s: typeof openSection) => setOpenSection(prev => prev === s ? null : s)
 
-  const [username, setUsername]         = useState('')
-  const [usernameBusy, setUsernameBusy] = useState(false)
-  const [usernameMsg, setUsernameMsg]   = useState<Msg | null>(null)
-
-  const [currentPw, setCurrentPw]       = useState('')
-  const [newPw, setNewPw]               = useState('')
-  const [passwordBusy, setPasswordBusy] = useState(false)
-  const [passwordMsg, setPasswordMsg]   = useState<Msg | null>(null)
-
-  const [colorBusy, setColorBusy] = useState(false)
-  const [pendingColor, setPendingColor] = useState<string | null>(null)
-  const [colorMsg, setColorMsg] = useState<Msg | null>(null)
-
-  useEffect(() => {
-    if (user) setUsername(user.username)
-  }, [user?.username])
-
   if (loading || !user) return null
 
-  const handleUsernameSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = username.trim()
-    if (trimmed === user.username) return
-    setUsernameBusy(true)
-    setUsernameMsg(null)
-    try {
-      await updateProfile({ username: trimmed })
-      emitAlias(trimmed)
-      setUsernameMsg({ ok: true, text: 'updated' })
-    } catch (err) {
-      setUsernameMsg({ ok: false, text: err instanceof Error ? err.message : 'something went wrong' })
-    } finally {
-      setUsernameBusy(false)
-    }
+  const handleUsernameSubmit = async (username: string) => {
+    await updateProfile({ username })
+    emitAlias(username)
   }
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setPasswordBusy(true)
-    setPasswordMsg(null)
-    try {
-      await updateProfile({ current_password: currentPw, new_password: newPw })
-      setPasswordMsg({ ok: true, text: 'updated' })
-      setCurrentPw('')
-      setNewPw('')
-    } catch (err) {
-      setPasswordMsg({ ok: false, text: err instanceof Error ? err.message : 'something went wrong' })
-    } finally {
-      setPasswordBusy(false)
-    }
+  const handlePasswordSubmit = async (currentPassword: string, newPassword: string) => {
+    await updateProfile({ current_password: currentPassword, new_password: newPassword })
   }
 
-  const handleColorSubmit = async () => {
-    if (!pendingColor || pendingColor === user.color || colorBusy) return
-    setColorBusy(true)
-    setColorMsg(null)
-    try {
-      await updateProfile({ cursor_color: pendingColor })
-      emitColor(pendingColor)
-      setColorMsg({ ok: true, text: 'updated' })
-      setPendingColor(null)
-    } catch (err) {
-      setColorMsg({ ok: false, text: err instanceof Error ? err.message : 'something went wrong' })
-    } finally {
-      setColorBusy(false)
-    }
+  const handleColorSubmit = async (color: string) => {
+    await updateProfile({ cursor_color: color })
+    emitColor(color)
   }
 
   return (
@@ -243,25 +181,7 @@ export default function ProfilePage() {
             open={openSection === 'alias'}
             onToggle={() => toggle('alias')}
           >
-            <form onSubmit={handleUsernameSubmit} className="space-y-2.5 max-w-xs">
-              <Input
-                value={username}
-                onChange={e => { setUsername(e.target.value); setUsernameMsg(null) }}
-                maxLength={20}
-              />
-              {usernameMsg && (
-                <p className={`text-[12px] font-medium ${usernameMsg.ok ? 'text-emerald-500' : 'text-red-400'}`}>
-                  {usernameMsg.text}
-                </p>
-              )}
-              <Button
-                type="submit"
-                size="sm"
-                disabled={usernameBusy || !username.trim() || username.trim() === user.username}
-              >
-                update alias
-              </Button>
-            </form>
+            <AliasForm initialUsername={user.username} onSubmit={handleUsernameSubmit} />
           </Section>
 
           {/* Password */}
@@ -270,34 +190,7 @@ export default function ProfilePage() {
             open={openSection === 'password'}
             onToggle={() => toggle('password')}
           >
-            <form onSubmit={handlePasswordSubmit} className="space-y-2.5 max-w-xs">
-              <Input
-                type="password"
-                value={currentPw}
-                onChange={e => { setCurrentPw(e.target.value); setPasswordMsg(null) }}
-                placeholder="current"
-                autoComplete="current-password"
-              />
-              <Input
-                type="password"
-                value={newPw}
-                onChange={e => { setNewPw(e.target.value); setPasswordMsg(null) }}
-                placeholder="new (8+ chars)"
-                autoComplete="new-password"
-              />
-              {passwordMsg && (
-                <p className={`text-[12px] font-medium ${passwordMsg.ok ? 'text-emerald-500' : 'text-red-400'}`}>
-                  {passwordMsg.text}
-                </p>
-              )}
-              <Button
-                type="submit"
-                size="sm"
-                disabled={passwordBusy || !currentPw || newPw.length < 8}
-              >
-                update password
-              </Button>
-            </form>
+            <PasswordForm onSubmit={handlePasswordSubmit} />
           </Section>
 
           {/* Cursor color */}
@@ -306,42 +199,7 @@ export default function ProfilePage() {
             open={openSection === 'cursor'}
             onToggle={() => toggle('cursor')}
           >
-            <div className="space-y-3">
-              <div className="grid grid-cols-9 gap-2 p-3">
-                {COLOR_PALETTE.map(color => {
-                  const selected = (pendingColor ?? user.color) === color
-                  return (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => { setPendingColor(color); setColorMsg(null) }}
-                      disabled={colorBusy}
-                      className={`w-7 h-7 rounded-full transition-all duration-150 cursor-pointer disabled:cursor-not-allowed
-                        ${selected
-                          ? 'ring-2 ring-offset-2 ring-gray-900 scale-110'
-                          : 'hover:scale-110 active:scale-95'
-                        }`}
-                      style={{ backgroundColor: color }}
-                      aria-label={color}
-                      aria-pressed={selected}
-                    />
-                  )
-                })}
-              </div>
-              {colorMsg && (
-                <p className={`text-[12px] font-medium ${colorMsg.ok ? 'text-emerald-500' : 'text-red-400'}`}>
-                  {colorMsg.text}
-                </p>
-              )}
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleColorSubmit}
-                disabled={colorBusy || !pendingColor || pendingColor === user.color}
-              >
-                update cursor
-              </Button>
-            </div>
+            <CursorColorForm initialColor={user.color} onSubmit={handleColorSubmit} />
           </Section>
 
           {/* Achievements */}
