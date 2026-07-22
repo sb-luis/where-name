@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { z } from 'zod'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { Button } from '@/components/ui/Button'
@@ -20,18 +21,28 @@ import type { GeoCollection } from '@/lib/geo/types'
 
 const VARIANT = 'ne_110m_admin_0_countries'
 
-interface PracticeStats {
-  games_played:    number
-  games_completed: number
-  countries:       CountryStat[]
-}
+const countryStatSchema = z.object({
+  feature:        z.string(),
+  correct:        z.number(),
+  wrong:          z.number(),
+  skipped:        z.number(),
+  avg_correct_ms: z.number().nullable(),
+}) satisfies z.ZodType<CountryStat>
 
-interface ProfileStats {
-  games_played:    number
-  games_completed: number
-  current_streak:  number
-  longest_streak:  number
-}
+const practiceStatsSchema = z.object({
+  games_played:    z.number(),
+  games_completed: z.number(),
+  countries:       z.array(countryStatSchema),
+})
+type PracticeStats = z.infer<typeof practiceStatsSchema>
+
+const profileStatsSchema = z.object({
+  games_played:    z.number(),
+  games_completed: z.number(),
+  current_streak:  z.number(),
+  longest_streak:  z.number(),
+})
+type ProfileStats = z.infer<typeof profileStatsSchema>
 
 export const COLOR_PALETTE = [
   '#ef4444', '#f97316', '#f59e0b',
@@ -118,11 +129,11 @@ export default function ProfilePage() {
     Promise.allSettled([
       loadCollection(LEVELS[0].url).then(setGeo),
       fetch(`/api/practice/stats?variant=${encodeURIComponent(VARIANT)}`)
-        .then(r => r.ok ? r.json() as Promise<PracticeStats> : Promise.reject())
-        .then(setPracticeStats),
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => setPracticeStats(practiceStatsSchema.parse(data))),
       fetch('/api/stats/profile')
-        .then(r => r.ok ? r.json() as Promise<ProfileStats> : Promise.reject())
-        .then(setProfileStats),
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => setProfileStats(profileStatsSchema.parse(data))),
     ]).then(results => {
       setStatsError(results.some(r => r.status === 'rejected'))
     })

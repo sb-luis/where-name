@@ -1,29 +1,33 @@
+import { z } from 'zod'
 import type { RoundResult, Difficulty } from './types'
 import { DIFFICULTY_VARIANT } from './difficulty'
 import { getDistinctId } from '@/lib/analytics/track'
 
-export interface Achievement {
-  slug: string
-  name: string
-  description: string
-}
+const achievementSchema = z.object({
+  slug:        z.string(),
+  name:        z.string(),
+  description: z.string(),
+})
 
-export interface SavePracticeGameResult {
-  saved: boolean
-  currentStreak?: number
-  longestStreak?: number
-  isFirstGameToday?: boolean
-  newAchievements?: Achievement[]
-}
+export type Achievement = z.infer<typeof achievementSchema>
 
-// Wire shape returned by POST /practice/games, before mapping to camelCase.
-interface SavePracticeGameResponse {
-  saved: boolean
-  current_streak?: number
-  longest_streak?: number
-  is_first_game_today?: boolean
-  new_achievements?: Achievement[]
-}
+// Wire shape returned by POST /practice/games (snake_case), transformed to
+// the camelCase shape the frontend consumes.
+const savePracticeGameResponseSchema = z.object({
+  saved:                z.boolean(),
+  current_streak:       z.number().optional(),
+  longest_streak:       z.number().optional(),
+  is_first_game_today:  z.boolean().optional(),
+  new_achievements:     z.array(achievementSchema).optional(),
+}).transform(data => ({
+  saved:             data.saved,
+  currentStreak:     data.current_streak,
+  longestStreak:     data.longest_streak,
+  isFirstGameToday:  data.is_first_game_today,
+  newAchievements:   data.new_achievements,
+}))
+
+export type SavePracticeGameResult = z.infer<typeof savePracticeGameResponseSchema>
 
 export async function savePracticeGame(
   results: RoundResult[],
@@ -51,12 +55,5 @@ export async function savePracticeGame(
     }),
   })
   if (!res.ok) throw new Error('Failed to save practice game')
-  const data = await res.json() as SavePracticeGameResponse
-  return {
-    saved:             data.saved,
-    currentStreak:     data.current_streak,
-    longestStreak:     data.longest_streak,
-    isFirstGameToday:  data.is_first_game_today,
-    newAchievements:   data.new_achievements,
-  }
+  return savePracticeGameResponseSchema.parse(await res.json())
 }

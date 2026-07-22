@@ -1,14 +1,17 @@
 'use client'
 
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, type ReactNode } from 'react'
+import { z } from 'zod'
 import { identify, resetIdentity } from '@/lib/analytics/track'
 
-export interface AuthUser {
-  id: number
-  username: string
-  color: string
-  created_at: string
-}
+const authUserSchema = z.object({
+  id:         z.number(),
+  username:   z.string(),
+  color:      z.string(),
+  created_at: z.string(),
+})
+
+export type AuthUser = z.infer<typeof authUserSchema>
 
 interface AuthContextValue {
   user: AuthUser | null
@@ -47,10 +50,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Rehydrate session on mount
   useEffect(() => {
     fetch('/api/auth/me')
-      .then(r => r.ok ? r.json() as Promise<AuthUser> : null)
+      .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data) identify(data.id, { signed_up_at: data.created_at })
-        setUser(data)
+        const user = data ? authUserSchema.parse(data) : null
+        if (user) identify(user.id, { signed_up_at: user.created_at })
+        setUser(user)
       })
       .catch(() => setUser(null))
       .finally(() => setLoading(false))
@@ -64,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     const data = await parseJson(r)
     if (!r.ok) throw new Error(data?.error as string ?? 'Login failed')
-    const loggedInUser = data as unknown as AuthUser
+    const loggedInUser = authUserSchema.parse(data)
     identify(loggedInUser.id, { signed_up_at: loggedInUser.created_at })
     setUser(loggedInUser)
   }, [])
@@ -77,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     const data = await parseJson(r)
     if (!r.ok) throw new Error(data?.error as string ?? 'Registration failed')
-    const registeredUser = data as unknown as AuthUser
+    const registeredUser = authUserSchema.parse(data)
     identify(registeredUser.id, { signed_up_at: registeredUser.created_at })
     setUser(registeredUser)
   }, [])
@@ -101,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     const data = await parseJson(r)
     if (!r.ok) throw new Error(data?.error as string ?? 'Update failed')
-    setUser(data as unknown as AuthUser)
+    setUser(authUserSchema.parse(data))
   }, [])
 
   const value = useMemo<AuthContextValue>(
