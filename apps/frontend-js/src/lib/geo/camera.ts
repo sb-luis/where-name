@@ -1,5 +1,10 @@
 // Camera-animation math shared by the globe components
 
+import * as THREE from 'three'
+
+// Camera direction for the globe's reset/initial view (lat 0, lng 0).
+export const INIT_DIRECTION = new THREE.Vector3(1, 0, 0)
+
 // Cubic ease-in-out: slow start, fast middle, slow end. Drives camera
 // fly-to transitions (position + FOV interpolation) over a [0, 1] progress.
 export function easeInOutCubic(t: number): number {

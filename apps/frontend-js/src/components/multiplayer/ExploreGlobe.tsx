@@ -16,8 +16,8 @@ import type { ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 
 import { GlobeRefLines } from '@/components/globe/GlobeRefLines'
-import { latLonToVec3, vec3ToLatLon, latLngToCameraPos } from '@/lib/geo/geometry'
-import { easeInOutCubic, orbitControlsTuning } from '@/lib/geo/camera'
+import { latLonToVec3, vec3ToLatLon, latLngToCameraPos, applyMat } from '@/lib/geo/geometry'
+import { easeInOutCubic, orbitControlsTuning, INIT_DIRECTION } from '@/lib/geo/camera'
 import { useCursorTracker, type CursorTrackState } from '@/lib/geo/useCursorTracker'
 import { useCursorFrameProjection } from '@/lib/geo/useCursorFrameProjection'
 import { useLodLoader } from '@/lib/geo/useLodLoader'
@@ -28,10 +28,6 @@ import { useLatestRef } from '@/lib/useLatestRef'
 import type { CursorData, UserStatus } from '@/lib/multiplayer/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-function applyMat(group: THREE.Group, mat: THREE.Material) {
-  for (const child of group.children) (child as THREE.Mesh).material = mat
-}
 
 // ── Scene handle ───────────────────────────────────────────────────────────────
 
@@ -172,7 +168,7 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
 
     useImperativeHandle(ref, () => ({
       setFov,
-      reset: () => animateTo(new THREE.Vector3(1, 0, 0), MAX_FOV),
+      reset: () => animateTo(INIT_DIRECTION, MAX_FOV),
     }), [setFov, animateTo])
 
     // Wheel zoom

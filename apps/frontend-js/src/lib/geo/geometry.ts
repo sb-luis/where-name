@@ -85,6 +85,13 @@ export function latLngToCameraPos(lat: number, lng: number, dist: number): [numb
   return [v.x, v.y, v.z];
 }
 
+// Swaps the material on every mesh/line in a group — used to recolor a
+// country's fill/border in place (hover, selection, game highlight) without
+// rebuilding its geometry.
+export function applyMat(group: THREE.Group, mat: THREE.Material) {
+  for (const child of group.children) (child as THREE.Mesh).material = mat;
+}
+
 // Returns raw typed arrays so callers can use them
 // without wrapping in Three.js objects on the compute side.
 export function buildFillData(poly: Polygon): { positions: Float32Array; indices: Uint32Array } {

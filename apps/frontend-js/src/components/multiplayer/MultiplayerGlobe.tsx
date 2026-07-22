@@ -16,8 +16,8 @@ import type { ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 
 import { GlobeRefLines } from '@/components/globe/GlobeRefLines'
-import { vec3ToLatLon, largestRingExtent, angularExtentDeg, fitFovForExtent, latLngToCameraPos } from '@/lib/geo/geometry'
-import { easeInOutCubic, orbitControlsTuning } from '@/lib/geo/camera'
+import { vec3ToLatLon, largestRingExtent, angularExtentDeg, fitFovForExtent, latLngToCameraPos, applyMat } from '@/lib/geo/geometry'
+import { easeInOutCubic, orbitControlsTuning, INIT_DIRECTION } from '@/lib/geo/camera'
 import { useCursorTracker, type CursorTrackState } from '@/lib/geo/useCursorTracker'
 import { useCursorFrameProjection } from '@/lib/geo/useCursorFrameProjection'
 import { useLodLoader } from '@/lib/geo/useLodLoader'
@@ -41,12 +41,6 @@ interface Materials {
 
 // duration of the camera fly-to animation (ms); shared with GameScreen for the focus-highlight downgrade timing
 export const FLY_DURATION_MS = 1200
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function applyMat(group: THREE.Group, mat: THREE.Material) {
-  for (const child of group.children) (child as THREE.Mesh).material = mat
-}
 
 // ─── Cursor visuals ───────────────────────────────────────────────────────────
 
@@ -311,11 +305,9 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
       animateTo(targetDir, targetFov)
     }, [animateTo, getFeatureMap, minLodLevelRef])
 
-    const HOME_DIR = new THREE.Vector3(1, 0, 0)
-
     useImperativeHandle(ref, () => ({
       setFov: (fov: number) => { fovFloorRef.current = MIN_FOV; setFov(fov) },
-      reset:            () => { fovFloorRef.current = MIN_FOV; animateTo(HOME_DIR, MAX_FOV) },
+      reset:            () => { fovFloorRef.current = MIN_FOV; animateTo(INIT_DIRECTION, MAX_FOV) },
       flyTo,
       highlightCorrect: (name: string) => setGameHighlight(name, mats.fillCorrect),
       highlightWrong:   (name: string) => setGameHighlight(name, mats.fillWrong),
