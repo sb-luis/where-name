@@ -18,23 +18,16 @@ import * as THREE from 'three'
 import { GlobeRefLines } from '@/components/globe/GlobeRefLines'
 import { latLonToVec3, vec3ToLatLon, latLngToCameraPos } from '@/lib/geo/geometry'
 import { easeInOutCubic, orbitControlsTuning } from '@/lib/geo/camera'
-import { useCursorTracker, useCursorFrameProjection, type CursorTrackState } from '@/lib/geo/cursorAnimation'
+import { useCursorTracker, type CursorTrackState } from '@/lib/geo/useCursorTracker'
+import { useCursorFrameProjection } from '@/lib/geo/useCursorFrameProjection'
+import { useLodLoader } from '@/lib/geo/useLodLoader'
 import { pickCountry } from '@/lib/geo/hit-test'
-import { fetchGeo } from '@/lib/geo/fetch'
-import { LEVELS, lodForFov, clamp, CAMERA_DIST, MIN_FOV, MAX_FOV, fovToSlider, sliderToFov } from '@/lib/geo/lod'
+import { lodForFov, clamp, CAMERA_DIST, MIN_FOV, MAX_FOV, fovToSlider, sliderToFov } from '@/lib/geo/lod'
 import { C_OCEAN, C_LAND, C_BORDER, C_SELECTED } from '@/lib/geo/palette'
 import { useLatestRef } from '@/lib/useLatestRef'
-import type { GeoCollection } from '@/lib/geo/types'
-import type { WorkerResponse } from '@/workers/geoBuilder.worker'
 import type { CursorData, UserStatus } from '@/lib/multiplayer/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-interface LodData {
-  borders: THREE.Group
-  fills:   THREE.Group
-  fillMap: Map<string, THREE.Group>
-}
 
 function applyMat(group: THREE.Group, mat: THREE.Material) {
   for (const child of group.children) (child as THREE.Mesh).material = mat
@@ -73,17 +66,13 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
       border: new THREE.LineBasicMaterial({ color: C_BORDER,   depthTest: true, depthWrite: false }),
     }), [])
 
-    const workerRef       = useRef<Worker | null>(null)
-    const lodDataRef      = useRef<(LodData | null)[]>([null, null, null])
-    const geojsonsRef     = useRef<(GeoCollection | null)[]>([null, null, null])
-    const loadedRef       = useRef<boolean[]>([false, false, false])
-    const buildPromiseRef = useRef<(Promise<void> | null)[]>([null, null, null])
+    const { lodDataRef, geojsonsRef, loadedRef, aliveRef, loadLod } = useLodLoader(scene, mat.fill, mat.border)
+
     const activeLodRef    = useRef(-1)
     const currentLevelRef = useRef(-1)
     const hoveredNameRef  = useRef<string | null>(null)
     const hoveredGroupRef = useRef<THREE.Group | null>(null)
     const fovRef          = useRef(MAX_FOV)
-    const aliveRef        = useRef(true)
     const flyRafRef       = useRef<number | null>(null)
     const lastHitRef      = useRef(0)
     const lastCamRef      = useRef(0)
@@ -131,75 +120,7 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
       activeLodRef.current = level
       data.borders.visible = true
       data.fills.visible   = true
-    }, [mat])
-
-    const loadLod = useCallback((level: number): Promise<void> => {
-      if (loadedRef.current[level]) return Promise.resolve()
-      if (buildPromiseRef.current[level]) return buildPromiseRef.current[level]!
-
-      buildPromiseRef.current[level] = (async () => {
-        const worker = workerRef.current
-        if (!worker) return
-
-        const geojson = await fetchGeo(LEVELS[level].url)
-        if (!aliveRef.current) return
-
-        const response = await new Promise<WorkerResponse>((resolve, reject) => {
-          const onMsg = (e: MessageEvent<WorkerResponse>) => {
-            if (e.data.level !== level) return
-            cleanup(); resolve(e.data)
-          }
-          const onErr = (e: ErrorEvent) => { cleanup(); reject(new Error(e.message)) }
-          const cleanup = () => {
-            worker.removeEventListener('message', onMsg)
-            worker.removeEventListener('error', onErr)
-          }
-          worker.addEventListener('message', onMsg)
-          worker.addEventListener('error', onErr)
-          worker.postMessage({ level, geojson })
-        })
-
-        if (!aliveRef.current) return
-
-        const borders = new THREE.Group()
-        const fills   = new THREE.Group()
-        const fillMap = new Map<string, THREE.Group>()
-
-        for (const feat of response.features) {
-          const featureGroup = new THREE.Group()
-          for (const { positions, indices } of feat.fills) {
-            const geo = new THREE.BufferGeometry()
-            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-            geo.setIndex(new THREE.BufferAttribute(indices, 1))
-            const mesh = new THREE.Mesh(geo, mat.fill)
-            mesh.renderOrder = 1
-            featureGroup.add(mesh)
-          }
-          fills.add(featureGroup)
-          fillMap.set(feat.name, featureGroup)
-
-          for (const bp of feat.borders) {
-            const geo = new THREE.BufferGeometry()
-            geo.setAttribute('position', new THREE.BufferAttribute(bp, 3))
-            const line = new THREE.Line(geo, mat.border)
-            line.renderOrder = 999
-            borders.add(line)
-          }
-        }
-
-        borders.visible = false
-        fills.visible   = false
-        scene.add(borders)
-        scene.add(fills)
-        geojsonsRef.current[level] = geojson
-        lodDataRef.current[level]  = { borders, fills, fillMap }
-        loadedRef.current[level]   = true
-
-        if (lodForFov(fovRef.current) === level) applyLod(level)
-      })()
-
-      return buildPromiseRef.current[level]!
-    }, [scene, mat, applyLod])
+    }, [mat, lodDataRef])
 
     const setFov = useCallback((fov: number) => {
       const f = clamp(fov, MIN_FOV, MAX_FOV)
@@ -218,9 +139,11 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
       const level = lodForFov(f)
       if (level !== currentLevelRef.current) {
         currentLevelRef.current = level
-        loadedRef.current[level] ? applyLod(level) : loadLod(level)
+        loadedRef.current[level]
+          ? applyLod(level)
+          : loadLod(level, loadedLevel => { if (lodForFov(fovRef.current) === loadedLevel) applyLod(loadedLevel) })
       }
-    }, [pc, applyLod, loadLod, onFovChangeRef])
+    }, [pc, applyLod, loadLod, loadedRef, onFovChangeRef])
 
     const zoomByRatio = useCallback((r: number) => { setFov(fovRef.current * r) }, [setFov])
 
@@ -251,13 +174,6 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
       setFov,
       reset: () => animateTo(new THREE.Vector3(1, 0, 0), MAX_FOV),
     }), [setFov, animateTo])
-
-    // Worker
-    useEffect(() => {
-      const w = new Worker(new URL('../../workers/geoBuilder.worker.ts', import.meta.url))
-      workerRef.current = w
-      return () => { w.terminate(); workerRef.current = null }
-    }, [])
 
     // Wheel zoom
     useEffect(() => {
@@ -297,8 +213,9 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
     // Bootstrap: load LODs, then pick a random starting country
     useEffect(() => {
       setFov(MAX_FOV)
+      const onLoaded = (level: number) => { if (lodForFov(fovRef.current) === level) applyLod(level) }
       const preload = async () => {
-        await loadLod(0)
+        await loadLod(0, onLoaded)
         if (!aliveRef.current) return
 
         // Orient camera to a random country and pre-select it
@@ -333,29 +250,20 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
           }
         }
 
-        await loadLod(1)
+        await loadLod(1, onLoaded)
         if (!aliveRef.current) return
-        await loadLod(2)
+        await loadLod(2, onLoaded)
       }
       preload()
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    useEffect(() => () => { aliveRef.current = false }, [])
-
-    // Geometry cleanup
+    // Material cleanup — the LOD loader disposes its own geometries.
     useEffect(() => () => {
-      for (const data of lodDataRef.current) {
-        if (!data) continue
-        scene.remove(data.borders)
-        scene.remove(data.fills)
-        data.borders.traverse(o => { if (o instanceof THREE.Line) o.geometry.dispose() })
-        data.fills.traverse(o => { if (o instanceof THREE.Mesh) o.geometry.dispose() })
-      }
       mat.fill.dispose()
       mat.hover.dispose()
       mat.border.dispose()
-    }, [scene, mat])
+    }, [mat])
 
     useCursorFrameProjection(cursorDataRef, cursorRefsMap, currentStatus)
 
