@@ -1,30 +1,19 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ExploreGlobe, type ExploreGlobeHandle } from '@/components/multiplayer/ExploreGlobe'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { usePresence } from '@/lib/multiplayer/usePresence'
-import { useGame } from '@/lib/game/GameContext'
+import { useCameraPersistence } from '@/lib/game/useCameraPersistence'
 
 export default function ExplorePage() {
-  const router                                  = useRouter()
-  const { emitCursorMove, emitStatus }          = useSocket()
-  const { cursors }                             = usePresence()
-  const { cameraOrientationRef }                = useGame()
-  const [hoveredCountry, setHoveredCountry]     = useState<string | null>(null)
-  const globeRef                                = useRef<ExploreGlobeHandle>(null)
-
-  useEffect(() => { emitStatus('explore') }, [emitStatus])
-
-  const initialPosition = useMemo(() => {
-    return cameraOrientationRef.current ?? undefined
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const handleCameraChange = (lat: number, lng: number) => {
-    cameraOrientationRef.current = { lat, lng }
-  }
+  const router                              = useRouter()
+  const { emitCursorMove }                  = useSocket()
+  const { cursors }                         = usePresence()
+  const [hoveredCountry, setHoveredCountry] = useState<string | null>(null)
+  const globeRef                            = useRef<ExploreGlobeHandle>(null)
+  const { initialPosition, handleCameraChange } = useCameraPersistence('explore')
 
   return (
     <div className="relative w-screen h-dvh">
