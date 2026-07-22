@@ -17,11 +17,13 @@ import * as THREE from 'three'
 
 import { GlobeRefLines } from '@/components/globe/GlobeRefLines'
 import { latLonToVec3, vec3ToLatLon, latLngToCameraPos } from '@/lib/geo/geometry'
-import { easeInOutCubic, orbitControlsTuning, globeScreenRadius, clampToGlobeEdge } from '@/lib/geo/camera'
+import { easeInOutCubic, orbitControlsTuning } from '@/lib/geo/camera'
+import { useCursorTracker, useCursorFrameProjection, type CursorTrackState } from '@/lib/geo/cursorAnimation'
 import { pickCountry } from '@/lib/geo/hit-test'
 import { fetchGeo } from '@/lib/geo/fetch'
 import { LEVELS, lodForFov, clamp, CAMERA_DIST, MIN_FOV, MAX_FOV, fovToSlider, sliderToFov } from '@/lib/geo/lod'
 import { C_OCEAN, C_LAND, C_BORDER, C_SELECTED } from '@/lib/geo/palette'
+import { useLatestRef } from '@/lib/useLatestRef'
 import type { GeoCollection } from '@/lib/geo/types'
 import type { WorkerResponse } from '@/workers/geoBuilder.worker'
 import type { CursorData, UserStatus } from '@/lib/multiplayer/types'
@@ -32,14 +34,6 @@ interface LodData {
   borders: THREE.Group
   fills:   THREE.Group
   fillMap: Map<string, THREE.Group>
-}
-
-interface CursorState {
-  currentVec: THREE.Vector3
-  targetVec:  THREE.Vector3
-  color:      string
-  alias:      string
-  status:     UserStatus
 }
 
 function applyMat(group: THREE.Group, mat: THREE.Material) {
@@ -60,7 +54,7 @@ interface SceneProps {
   onCursorMove?:   (lat: number, lng: number) => void
   onCameraChange?: (lat: number, lng: number) => void
   onHover?:        (name: string | null) => void
-  cursorDataRef:   React.RefObject<Map<string, CursorState>>
+  cursorDataRef:   React.RefObject<Map<string, CursorTrackState>>
   cursorRefsMap:   React.RefObject<Map<string, HTMLDivElement>>
   currentStatus:   UserStatus
 }
@@ -94,19 +88,21 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
     const lastHitRef      = useRef(0)
     const lastCamRef      = useRef(0)
 
-    const onFovChangeRef    = useRef(onFovChange)
-    const onCursorMoveRef   = useRef(onCursorMove)
-    const onCameraChangeRef = useRef(onCameraChange)
-    const onHoverRef        = useRef(onHover)
-    onFovChangeRef.current    = onFovChange
-    onCursorMoveRef.current   = onCursorMove
-    onCameraChangeRef.current = onCameraChange
-    onHoverRef.current        = onHover
+    // setFov is genuinely memoized below (it's a dependency of the native
+    // wheel/pinch-zoom listeners' effects, and is exposed via the imperative
+    // handle), so onFovChange needs the latest-ref treatment to avoid setFov
+    // itself changing identity whenever the parent passes a new callback.
+    const onFovChangeRef = useLatestRef(onFovChange)
+    // The bootstrap effect below (empty deps, runs once) reports the
+    // auto-selected starting country asynchronously — it needs the latest
+    // onHover, not whichever one existed on mount.
+    const onHoverRef = useLatestRef(onHover)
 
     const pc = camera as THREE.PerspectiveCamera
 
-    // Select a country by name — no-ops if already selected or name is null
-    const selectCountry = useCallback((name: string | null) => {
+    // Not memoized — only ever called from the pointer/click handlers below,
+    // which are themselves unmemoized (see their comment for why).
+    const selectCountry = (name: string | null) => {
       if (!name || name === hoveredNameRef.current) return
       if (hoveredGroupRef.current) applyMat(hoveredGroupRef.current, mat.fill)
       hoveredNameRef.current = name
@@ -114,8 +110,8 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
       const g   = lod?.fillMap.get(name) ?? null
       hoveredGroupRef.current = g
       if (g) applyMat(g, mat.hover)
-      onHoverRef.current?.(name)
-    }, [mat])
+      onHover?.(name)
+    }
 
     const applyLod = useCallback((level: number) => {
       const data = lodDataRef.current[level]
@@ -224,7 +220,7 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
         currentLevelRef.current = level
         loadedRef.current[level] ? applyLod(level) : loadLod(level)
       }
-    }, [pc, applyLod, loadLod])
+    }, [pc, applyLod, loadLod, onFovChangeRef])
 
     const zoomByRatio = useCallback((r: number) => { setFov(fovRef.current * r) }, [setFov])
 
@@ -361,61 +357,37 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
       mat.border.dispose()
     }, [scene, mat])
 
-    // Frame loop: animate cursors + throttled camera callback
-    const camDir  = useRef(new THREE.Vector3())
-    const tempVec = useRef(new THREE.Vector3())
+    useCursorFrameProjection(cursorDataRef, cursorRefsMap, currentStatus)
 
-    useFrame(({ size }) => {
-      camDir.current.copy(camera.position).normalize()
-
-      const pc_ = camera as THREE.PerspectiveCamera
-      const globeR = globeScreenRadius(pc_.fov, size.height, CAMERA_DIST)
-      const cx = size.width / 2
-      const cy = size.height / 2
-
-      for (const [id, state] of cursorDataRef.current) {
-        state.currentVec.lerp(state.targetVec, 0.08).normalize()
-        const facing = state.currentVec.dot(camDir.current) > 0.02
-
-        tempVec.current.copy(state.currentVec).project(camera)
-        let sx = (tempVec.current.x + 1) / 2 * size.width
-        let sy = (-tempVec.current.y + 1) / 2 * size.height
-
-        if (!facing) {
-          [sx, sy] = clampToGlobeEdge(sx, sy, cx, cy, globeR)
-        }
-
-        const el = cursorRefsMap.current?.get(id)
-        if (el) {
-          el.style.transform = `translate(${sx}px, ${sy}px)`
-          el.style.opacity = state.status === currentStatus ? '1' : '0.35'
-        }
-      }
-
-      // Throttled camera orientation callback
+    // Throttled camera orientation callback — reads onCameraChange directly
+    // (not via a ref): safe because useFrame re-registers this callback
+    // fresh every render internally.
+    useFrame(() => {
       const now = performance.now()
-      if (onCameraChangeRef.current && now - lastCamRef.current > 200) {
+      if (onCameraChange && now - lastCamRef.current > 200) {
         lastCamRef.current = now
         const { lat, lon } = vec3ToLatLon(camera.position.clone().normalize())
-        onCameraChangeRef.current(lat, lon)
+        onCameraChange(lat, lon)
       }
     })
 
-    const handlePointerMove = useCallback((e: ThreeEvent<PointerEvent>) => {
+    // Not memoized: R3F reads event handler props fresh from the instance at
+    // dispatch time, so there's nothing to gain from useCallback here.
+    const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
       const { lat, lon } = vec3ToLatLon(e.point.clone().normalize())
-      onCursorMoveRef.current?.(lat, lon)
+      onCursorMove?.(lat, lon)
       // Throttle hit-test to ~30fps
       const now = performance.now()
       if (now - lastHitRef.current < 32) return
       lastHitRef.current = now
       selectCountry(pickCountry(lon, lat, geojsonsRef.current[activeLodRef.current]?.features ?? []))
-    }, [selectCountry])
+    }
 
     // onClick handles mobile taps (browser suppresses it after a drag, so no conflict with rotation)
-    const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
+    const handleClick = (e: ThreeEvent<MouseEvent>) => {
       const { lat, lon } = vec3ToLatLon(e.point.clone().normalize())
       selectCountry(pickCountry(lon, lat, geojsonsRef.current[activeLodRef.current]?.features ?? []))
-    }, [selectCountry])
+    }
 
     return (
       <>
@@ -471,11 +443,9 @@ export const ExploreGlobe = forwardRef<ExploreGlobeHandle, Props>(function Explo
   ref,
 ) {
   const [sliderValue, setSliderValue] = useState(() => fovToSlider(MAX_FOV))
-  const [cursorIds, setCursorIds]     = useState<string[]>([])
 
-  const sceneRef      = useRef<SceneHandle>(null)
-  const cursorDataRef = useRef<Map<string, CursorState>>(new Map())
-  const cursorRefsMap = useRef<Map<string, HTMLDivElement>>(new Map())
+  const sceneRef = useRef<SceneHandle>(null)
+  const { cursorDataRef, cursorRefsMap, cursorMeta } = useCursorTracker(cursors)
 
   useImperativeHandle(ref, () => ({
     reset: () => sceneRef.current?.reset(),
@@ -490,34 +460,6 @@ export const ExploreGlobe = forwardRef<ExploreGlobeHandle, Props>(function Explo
     setSliderValue(v)
     sceneRef.current?.setFov(sliderToFov(v))
   }, [])
-
-  // Sync cursor data from props into the ref map (read by useFrame each tick)
-  useEffect(() => {
-    const nextIds: string[] = []
-    for (const c of cursors) {
-      nextIds.push(c.id)
-      const target   = latLonToVec3(c.lat, c.lng, 1).normalize()
-      const existing = cursorDataRef.current.get(c.id)
-      if (existing) {
-        existing.targetVec.copy(target)
-        existing.alias  = c.alias ?? ''
-        existing.color  = c.color
-        existing.status = c.status
-      } else {
-        cursorDataRef.current.set(c.id, {
-          currentVec: target.clone(),
-          targetVec:  target.clone(),
-          color:      c.color,
-          alias:      c.alias ?? '',
-          status:     c.status,
-        })
-      }
-    }
-    for (const id of cursorDataRef.current.keys()) {
-      if (!nextIds.includes(id)) cursorDataRef.current.delete(id)
-    }
-    setCursorIds(nextIds)
-  }, [cursors])
 
   const cameraPosition = useMemo<[number, number, number]>(() => {
     if (!initialPosition) return [CAMERA_DIST, 0, 0]
@@ -556,30 +498,26 @@ export const ExploreGlobe = forwardRef<ExploreGlobeHandle, Props>(function Explo
       </div>
 
       {/* Cursor overlays */}
-      {cursorIds.map(id => {
-        const state = cursorDataRef.current.get(id)
-        if (!state) return null
-        return (
-          <div
-            key={id}
-            ref={el => {
-              if (el) cursorRefsMap.current.set(id, el as HTMLDivElement)
-              else cursorRefsMap.current.delete(id)
-            }}
-            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', willChange: 'transform' }}
-          >
-            <div style={{ position: 'absolute', top: 0, left: 0 }}>
-              <CursorArrow color={state.color} />
-            </div>
-            <div
-              className="absolute px-2 py-0.5 rounded-full text-white text-[11px] font-semibold whitespace-nowrap shadow-sm select-none"
-              style={{ top: 0, left: 16, backgroundColor: state.color }}
-            >
-              {state.alias || '…'}
-            </div>
+      {cursorMeta.map(({ id, color, alias }) => (
+        <div
+          key={id}
+          ref={el => {
+            if (el) cursorRefsMap.current.set(id, el)
+            else cursorRefsMap.current.delete(id)
+          }}
+          style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', willChange: 'transform' }}
+        >
+          <div style={{ position: 'absolute', top: 0, left: 0 }}>
+            <CursorArrow color={color} />
           </div>
-        )
-      })}
+          <div
+            className="absolute px-2 py-0.5 rounded-full text-white text-[11px] font-semibold whitespace-nowrap shadow-sm select-none"
+            style={{ top: 0, left: 0, backgroundColor: color }}
+          >
+            {alias || '…'}
+          </div>
+        </div>
+      ))}
 
     </div>
   )

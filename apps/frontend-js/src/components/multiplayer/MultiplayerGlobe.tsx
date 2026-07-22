@@ -16,12 +16,14 @@ import type { ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 
 import { GlobeRefLines } from '@/components/globe/GlobeRefLines'
-import { latLonToVec3, vec3ToLatLon, largestRingExtent, angularExtentDeg, fitFovForExtent, latLngToCameraPos } from '@/lib/geo/geometry'
-import { easeInOutCubic, orbitControlsTuning, globeScreenRadius, clampToGlobeEdge } from '@/lib/geo/camera'
+import { vec3ToLatLon, largestRingExtent, angularExtentDeg, fitFovForExtent, latLngToCameraPos } from '@/lib/geo/geometry'
+import { easeInOutCubic, orbitControlsTuning } from '@/lib/geo/camera'
+import { useCursorTracker, useCursorFrameProjection, type CursorTrackState } from '@/lib/geo/cursorAnimation'
 import { pickCountry } from '@/lib/geo/hit-test'
 import { fetchGeo } from '@/lib/geo/fetch'
 import { LEVELS, lodForFov, clamp, CAMERA_DIST, MIN_FOV, MAX_FOV, REVEAL_MIN_FOV, MIN_ORBITING_FOV, fovToSlider, sliderToFov } from '@/lib/geo/lod'
 import { C_OCEAN, C_LAND, C_BORDER, C_SELECTED, C_CORRECT, C_WRONG, C_WRONG_FOCUS } from '@/lib/geo/palette'
+import { useLatestRef } from '@/lib/useLatestRef'
 import type { GeoCollection, GeoFeature } from '@/lib/geo/types'
 import type { WorkerResponse } from '@/workers/geoBuilder.worker'
 import type { CursorData, UserStatus } from '@/lib/multiplayer/types'
@@ -41,14 +43,6 @@ interface Materials {
   fillWrong:      THREE.MeshBasicMaterial
   fillWrongFocus: THREE.MeshBasicMaterial
   border:         THREE.LineBasicMaterial
-}
-
-interface CursorState {
-  currentVec: THREE.Vector3
-  targetVec:  THREE.Vector3
-  color:      string
-  alias:      string
-  status:     UserStatus
 }
 
 // duration of the camera fly-to animation (ms); shared with GameScreen for the focus-highlight downgrade timing
@@ -139,7 +133,7 @@ interface SceneProps {
   onFovChange?:    (fov: number) => void
   onCursorMove?:   (lat: number, lng: number) => void
   onCameraChange?: (lat: number, lng: number) => void
-  cursorDataRef:   React.RefObject<Map<string, CursorState>>
+  cursorDataRef:   React.RefObject<Map<string, CursorTrackState>>
   cursorRefsMap:   React.RefObject<Map<string, HTMLDivElement>>
   currentStatus:   UserStatus
   interactive?:    boolean
@@ -151,10 +145,11 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
     { onSelect, onFovChange, onCursorMove, onCameraChange, cursorDataRef, cursorRefsMap, currentStatus, interactive = true, minLodLevel = 0 },
     ref,
   ) {
-    const interactiveRef = useRef(interactive)
-    interactiveRef.current = interactive
-    const minLodLevelRef = useRef(minLodLevel)
-    minLodLevelRef.current = minLodLevel
+    // setFov/flyTo are genuinely memoized below (dependencies of the native
+    // wheel/pinch-zoom effects and the imperative handle), so minLodLevel
+    // needs the latest-ref treatment to avoid them changing identity
+    // whenever the parent re-renders with a new minLodLevel value.
+    const minLodLevelRef = useLatestRef(minLodLevel)
 
     const { scene, camera, gl } = useThree()
     const controlsRef = useRef<OrbitControlsImpl>(null)
@@ -183,11 +178,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
     const fovFloorRef      = useRef(MIN_FOV)
     const aliveRef         = useRef(true)
     const flyRafRef        = useRef<number | null>(null)
-    const onCursorMoveRef   = useRef(onCursorMove)
-    const onCameraChangeRef = useRef(onCameraChange)
-    const lastCamUpdateRef  = useRef(0)
-    onCursorMoveRef.current  = onCursorMove
-    onCameraChangeRef.current = onCameraChange
+    const lastCamUpdateRef = useRef(0)
 
     const pc = camera as THREE.PerspectiveCamera
 
@@ -302,8 +293,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
       return buildPromiseRef.current[level]!
     }, [scene, mats, applyLod])
 
-    const onFovChangeRef = useRef(onFovChange)
-    useEffect(() => { onFovChangeRef.current = onFovChange }, [onFovChange])
+    const onFovChangeRef = useLatestRef(onFovChange)
 
     const setFov = useCallback((fov: number) => {
       const f = clamp(fov, fovFloorRef.current, MAX_FOV)
@@ -324,7 +314,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
         currentLevelRef.current = level
         loadedRef.current[level] ? applyLod(level) : loadLod(level)
       }
-    }, [pc, applyLod, loadLod])
+    }, [pc, applyLod, loadLod, onFovChangeRef, minLodLevelRef])
 
     const animateTo = useCallback((targetDir: THREE.Vector3, targetFov: number) => {
       if (flyRafRef.current !== null) { cancelAnimationFrame(flyRafRef.current); flyRafRef.current = null }
@@ -403,7 +393,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
       const targetFov = clamp(Math.min(fillFov, lodBound), REVEAL_MIN_FOV, 35)
       fovFloorRef.current = REVEAL_MIN_FOV
       animateTo(targetDir, targetFov)
-    }, [animateTo, getFeatureMap])
+    }, [animateTo, getFeatureMap, minLodLevelRef])
 
     const HOME_DIR = new THREE.Vector3(1, 0, 0)
 
@@ -502,53 +492,24 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
       }
     }, [scene, mats])
 
-    // Cursor animation — same as PresenceGlobe, runs every frame, writes directly to DOM
-    const camDir  = useRef(new THREE.Vector3())
-    const tempVec = useRef(new THREE.Vector3())
+    useCursorFrameProjection(cursorDataRef, cursorRefsMap, currentStatus)
 
-    useFrame(({ size }) => {
-      const pc_ = camera as THREE.PerspectiveCamera
-      const globeR = globeScreenRadius(pc_.fov, size.height, CAMERA_DIST)
-      const cx = size.width / 2
-      const cy = size.height / 2
-
-      camDir.current.copy(camera.position).normalize()
-
-      for (const [id, state] of cursorDataRef.current) {
-        state.currentVec.lerp(state.targetVec, 0.08).normalize()
-        const isVisible = state.currentVec.dot(camDir.current) > 0.02
-
-        tempVec.current.copy(state.currentVec).project(camera)
-        let sx = (tempVec.current.x + 1) / 2 * size.width
-        let sy = (-tempVec.current.y + 1) / 2 * size.height
-
-        if (!isVisible) {
-          [sx, sy] = clampToGlobeEdge(sx, sy, cx, cy, globeR)
-        }
-
-        const el = cursorRefsMap.current.get(id)
-        if (!el) continue
-
-        el.style.transform = `translate(${sx}px, ${sy}px)`
-        el.style.opacity   = state.status === currentStatus ? '1' : '0.35'
-
-        const arrow = el.children[0] as HTMLElement
-        const label = el.children[1] as HTMLElement
-        arrow.style.opacity   = '1'
-        label.style.transform = 'translate(16px, -2px)'
-      }
-
+    // Reads onCameraChange directly (not via a ref): safe because useFrame
+    // re-registers this callback fresh every render internally.
+    useFrame(() => {
       // ── Camera orientation (throttled 200 ms) ────────────────────────────────
       const now = performance.now()
-      if (onCameraChangeRef.current && now - lastCamUpdateRef.current > 200) {
+      if (onCameraChange && now - lastCamUpdateRef.current > 200) {
         lastCamUpdateRef.current = now
         const { lat, lon } = vec3ToLatLon(camera.position.clone().normalize())
-        onCameraChangeRef.current(lat, lon)
+        onCameraChange(lat, lon)
       }
     })
 
-    const handleDoubleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
-      if (!interactiveRef.current) return
+    // Not memoized: R3F reads event handler props fresh from the instance at
+    // dispatch time, so there's nothing to gain from useCallback here.
+    const handleDoubleClick = (e: ThreeEvent<MouseEvent>) => {
+      if (!interactive) return
       e.stopPropagation()
       const { lat, lon } = vec3ToLatLon(e.point.clone().normalize())
       const features = geojsonsRef.current[activeLodRef.current]?.features ?? []
@@ -562,12 +523,12 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
         if (g) { selectedGroupRef.current = g; applyMat(g, mats.fillHigh) }
       }
       onSelect(name)
-    }, [onSelect, clearSelectionMaterials, mats])
+    }
 
-    const handlePointerMove = useCallback((e: ThreeEvent<PointerEvent>) => {
+    const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
       const { lat, lon } = vec3ToLatLon(e.point.clone().normalize())
-      onCursorMoveRef.current?.(lat, lon)
-    }, [])
+      onCursorMove?.(lat, lon)
+    }
 
     return (
       <>
@@ -620,10 +581,8 @@ export const MultiplayerGlobe = forwardRef<MultiplayerGlobeHandle, Props>(
   ) {
     const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
     const [sliderValue, setSliderValue]         = useState(() => fovToSlider(MAX_FOV))
-    const sceneRef      = useRef<MultiplayerGlobeSceneHandle>(null)
-    const cursorDataRef = useRef<Map<string, CursorState>>(new Map())
-    const cursorRefsMap = useRef<Map<string, HTMLDivElement>>(new Map())
-    const [cursorIds, setCursorIds] = useState<string[]>([])
+    const sceneRef = useRef<MultiplayerGlobeSceneHandle>(null)
+    const { cursorDataRef, cursorRefsMap, cursorMeta } = useCursorTracker(cursors)
 
     const handleSelect = useCallback((name: string | null) => {
       setSelectedCountry(name)
@@ -648,38 +607,6 @@ export const MultiplayerGlobe = forwardRef<MultiplayerGlobeHandle, Props>(
       focusWrong:       (name) => sceneRef.current?.focusWrong(name),
       clearHighlight:   () => sceneRef.current?.clearHighlight(),
     }), [])
-
-    // Sync cursor data
-    useEffect(() => {
-      const nextIds: string[] = []
-
-      for (const c of cursors) {
-        nextIds.push(c.id)
-        const target   = latLonToVec3(c.lat, c.lng, 1).normalize()
-        const existing = cursorDataRef.current.get(c.id)
-
-        if (existing) {
-          existing.targetVec.copy(target)
-          existing.alias  = c.alias ?? ''
-          existing.color  = c.color
-          existing.status = c.status
-        } else {
-          cursorDataRef.current.set(c.id, {
-            currentVec: target.clone(),
-            targetVec:  target.clone(),
-            color:      c.color,
-            alias:      c.alias ?? '',
-            status:     c.status,
-          })
-        }
-      }
-
-      for (const id of cursorDataRef.current.keys()) {
-        if (!nextIds.includes(id)) cursorDataRef.current.delete(id)
-      }
-
-      setCursorIds(nextIds)
-    }, [cursors])
 
     const cameraPosition: [number, number, number] = initialPosition
       ? latLngToCameraPos(initialPosition.lat, initialPosition.lng, CAMERA_DIST)
@@ -735,27 +662,23 @@ export const MultiplayerGlobe = forwardRef<MultiplayerGlobeHandle, Props>(
         )}
 
         {/* Cursor overlays */}
-        {cursorIds.map(id => {
-          const state = cursorDataRef.current.get(id)
-          if (!state) return null
-          return (
-            <div
-              key={id}
-              ref={el => {
-                if (el) cursorRefsMap.current.set(id, el as HTMLDivElement)
-                else cursorRefsMap.current.delete(id)
-              }}
-              style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', willChange: 'transform' }}
-            >
-              <div style={{ position: 'absolute', top: 0, left: 0 }}>
-                <CursorArrow color={state.color} />
-              </div>
-              <div style={{ position: 'absolute', top: 0, left: 0 }}>
-                <CursorLabel alias={state.alias || '…'} color={state.color} />
-              </div>
+        {cursorMeta.map(({ id, color, alias }) => (
+          <div
+            key={id}
+            ref={el => {
+              if (el) cursorRefsMap.current.set(id, el)
+              else cursorRefsMap.current.delete(id)
+            }}
+            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', willChange: 'transform' }}
+          >
+            <div style={{ position: 'absolute', top: 0, left: 0 }}>
+              <CursorArrow color={color} />
             </div>
-          )
-        })}
+            <div style={{ position: 'absolute', top: 0, left: 0 }}>
+              <CursorLabel alias={alias || '…'} color={color} />
+            </div>
+          </div>
+        ))}
 
       </div>
     )

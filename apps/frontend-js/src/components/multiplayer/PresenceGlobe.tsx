@@ -1,11 +1,9 @@
 'use client'
 
 import {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from 'react'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
@@ -13,23 +11,13 @@ import type { ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 
 import { GlobeRefLines } from '@/components/globe/GlobeRefLines'
-import { latLonToVec3, vec3ToLatLon, latLngToCameraPos } from '@/lib/geo/geometry'
-import { globeScreenRadius, clampToGlobeEdge } from '@/lib/geo/camera'
+import { vec3ToLatLon, latLngToCameraPos } from '@/lib/geo/geometry'
+import { useCursorTracker, useCursorFrameProjection, type CursorTrackState } from '@/lib/geo/cursorAnimation'
 import { fetchGeo } from '@/lib/geo/fetch'
 import { LEVELS, CAMERA_DIST } from '@/lib/geo/lod'
 import { C_OCEAN, C_LAND } from '@/lib/geo/palette'
 import type { WorkerResponse } from '@/workers/geoBuilder.worker'
 import type { CursorData, UserStatus } from '@/lib/multiplayer/types'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface CursorState {
-  currentVec: THREE.Vector3
-  targetVec:  THREE.Vector3
-  color:      string
-  alias:      string
-  status:     UserStatus
-}
 
 // ─── Cursor visuals ───────────────────────────────────────────────────────────
 
@@ -62,7 +50,7 @@ function CursorLabel({ alias, color }: { alias: string; color: string }) {
 // ─── R3F scene ────────────────────────────────────────────────────────────────
 
 interface SceneProps {
-  cursorDataRef:   React.RefObject<Map<string, CursorState>>
+  cursorDataRef:   React.RefObject<Map<string, CursorTrackState>>
   cursorRefsMap:   React.RefObject<Map<string, HTMLDivElement>>
   currentStatus:   UserStatus
   onCursorMove?:   (lat: number, lng: number) => void
@@ -76,20 +64,14 @@ function PresenceScene({
   onCursorMove,
   onCameraChange,
 }: SceneProps) {
-  const { scene, camera, size } = useThree()
+  const { scene, camera } = useThree()
 
   const mats = useMemo(() => ({
     fill: new THREE.MeshBasicMaterial({ color: C_LAND, side: THREE.DoubleSide }),
   }), [])
 
-  const aliveRef           = useRef(true)
-  const camDir             = useRef(new THREE.Vector3())
-  const tempVec            = useRef(new THREE.Vector3())
-  const lastCamUpdateRef   = useRef(0)
-  const onCursorMoveRef    = useRef(onCursorMove)
-  const onCameraChangeRef  = useRef(onCameraChange)
-  onCursorMoveRef.current  = onCursorMove
-  onCameraChangeRef.current = onCameraChange
+  const aliveRef         = useRef(true)
+  const lastCamUpdateRef = useRef(0)
 
   useEffect(() => {
     const worker = new Worker(new URL('../../workers/geoBuilder.worker.ts', import.meta.url))
@@ -128,48 +110,27 @@ function PresenceScene({
 
   useEffect(() => () => { mats.fill.dispose() }, [mats])
 
+  useCursorFrameProjection(cursorDataRef, cursorRefsMap, currentStatus)
+
   useFrame(() => {
-    const pc      = camera as THREE.PerspectiveCamera
-    const globeR  = globeScreenRadius(pc.fov, size.height, CAMERA_DIST)
-    const cx      = size.width  / 2
-    const cy      = size.height / 2
-
-    camDir.current.copy(camera.position).normalize()
-
-    // ── Other visitors ────────────────────────────────────────────────────────
-    for (const [id, state] of cursorDataRef.current) {
-      state.currentVec.lerp(state.targetVec, 0.08).normalize()
-      const isVisible = state.currentVec.dot(camDir.current) > 0.02
-
-      tempVec.current.copy(state.currentVec).project(camera)
-      let sx = (tempVec.current.x + 1)  / 2 * size.width
-      let sy = (-tempVec.current.y + 1) / 2 * size.height
-
-      if (!isVisible) {
-        [sx, sy] = clampToGlobeEdge(sx, sy, cx, cy, globeR)
-      }
-
-      const el = cursorRefsMap.current.get(id)
-      if (!el) continue
-
-      el.style.transform = `translate(${sx}px, ${sy}px)`
-      el.style.opacity   = state.status === currentStatus ? '1' : '0.35'
-      ;(el.children[1] as HTMLElement).style.transform = 'translate(16px, -2px)'
-    }
-
     // ── Camera orientation (throttled 200 ms) ─────────────────────────────────
+    // Reads onCameraChange directly (not via a ref) — safe because useFrame
+    // re-registers this callback fresh every render internally.
     const now = performance.now()
-    if (onCameraChangeRef.current && now - lastCamUpdateRef.current > 200) {
+    if (onCameraChange && now - lastCamUpdateRef.current > 200) {
       lastCamUpdateRef.current = now
       const { lat, lon } = vec3ToLatLon(camera.position.clone().normalize())
-      onCameraChangeRef.current(lat, lon)
+      onCameraChange(lat, lon)
     }
   })
 
-  const handlePointerMove = useCallback((e: ThreeEvent<PointerEvent>) => {
+  // Not memoized: R3F reads event handler props fresh from the instance at
+  // dispatch time (no addEventListener-style subscription to go stale), so
+  // there's nothing to gain from useCallback here.
+  const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
     const { lat, lon } = vec3ToLatLon(e.point.clone().normalize())
-    onCursorMoveRef.current?.(lat, lon)
-  }, [])
+    onCursorMove?.(lat, lon)
+  }
 
   return (
     <>
@@ -194,38 +155,11 @@ interface Props {
 }
 
 export function PresenceGlobe({ cursors, currentStatus, initialPosition, onCursorMove, onCameraChange }: Props) {
-  const cursorDataRef = useRef<Map<string, CursorState>>(new Map())
-  const cursorRefsMap = useRef<Map<string, HTMLDivElement>>(new Map())
-  const [cursorIds, setCursorIds] = useState<string[]>([])
+  const { cursorDataRef, cursorRefsMap, cursorMeta } = useCursorTracker(cursors)
 
   const cameraPosition = initialPosition
     ? latLngToCameraPos(initialPosition.lat, initialPosition.lng, CAMERA_DIST)
     : [CAMERA_DIST, 0, 0] as [number, number, number]
-
-  // Sync incoming cursor data
-  useEffect(() => {
-    const nextIds: string[] = []
-    for (const c of cursors) {
-      nextIds.push(c.id)
-      const target   = latLonToVec3(c.lat, c.lng, 1).normalize()
-      const existing = cursorDataRef.current.get(c.id)
-      if (existing) {
-        existing.targetVec.copy(target)
-        existing.alias  = c.alias ?? ''
-        existing.color  = c.color
-        existing.status = c.status
-      } else {
-        cursorDataRef.current.set(c.id, {
-          currentVec: target.clone(), targetVec: target.clone(),
-          color: c.color, alias: c.alias ?? '', status: c.status,
-        })
-      }
-    }
-    for (const id of cursorDataRef.current.keys()) {
-      if (!nextIds.includes(id)) cursorDataRef.current.delete(id)
-    }
-    setCursorIds(nextIds)
-  }, [cursors])
 
   return (
     <div className="relative w-full h-full">
@@ -244,27 +178,23 @@ export function PresenceGlobe({ cursors, currentStatus, initialPosition, onCurso
       </Canvas>
 
       {/* Other visitors */}
-      {cursorIds.map(id => {
-        const state = cursorDataRef.current.get(id)
-        if (!state) return null
-        return (
-          <div
-            key={id}
-            ref={el => {
-              if (el) cursorRefsMap.current.set(id, el as HTMLDivElement)
-              else cursorRefsMap.current.delete(id)
-            }}
-            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', willChange: 'transform' }}
-          >
-            <div style={{ position: 'absolute', top: 0, left: 0 }}>
-              <CursorArrow color={state.color} />
-            </div>
-            <div style={{ position: 'absolute', top: 0, left: 0 }}>
-              <CursorLabel alias={state.alias || '…'} color={state.color} />
-            </div>
+      {cursorMeta.map(({ id, color, alias }) => (
+        <div
+          key={id}
+          ref={el => {
+            if (el) cursorRefsMap.current.set(id, el)
+            else cursorRefsMap.current.delete(id)
+          }}
+          style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', willChange: 'transform' }}
+        >
+          <div style={{ position: 'absolute', top: 0, left: 0 }}>
+            <CursorArrow color={color} />
           </div>
-        )
-      })}
+          <div style={{ position: 'absolute', top: 0, left: 0 }}>
+            <CursorLabel alias={alias || '…'} color={color} />
+          </div>
+        </div>
+      ))}
 
     </div>
   )
