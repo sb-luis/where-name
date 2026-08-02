@@ -135,9 +135,8 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
       const level = lodForFov(f)
       if (level !== currentLevelRef.current) {
         currentLevelRef.current = level
-        loadedRef.current[level]
-          ? applyLod(level)
-          : loadLod(level, loadedLevel => { if (lodForFov(fovRef.current) === loadedLevel) applyLod(loadedLevel) })
+        if (loadedRef.current[level]) applyLod(level)
+        else loadLod(level, loadedLevel => { if (lodForFov(fovRef.current) === loadedLevel) applyLod(loadedLevel) })
       }
     }, [pc, applyLod, loadLod, loadedRef, onFovChangeRef])
 

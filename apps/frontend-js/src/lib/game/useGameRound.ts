@@ -38,17 +38,22 @@ export function useGameRound({ targets, practice, practiceTimeLimitMs, globeRef,
     return 0
   })
   const [feedback, setFeedback] = useState<Feedback | null>(null)
-  const [isLive, setIsLive]     = useState(false)
+  // the first round is live immediately —
+  // later rounds are (re-)activated inside advance().
+  const [isLive, setIsLive]     = useState(true)
+
+  const [initialNow]  = useState(() => Date.now())
+  const [initialPerf] = useState(() => performance.now())
 
   const currentIndexRef = useRef(0)
   const resultsRef      = useRef<RoundResult[]>([])
-  const startTimeRef    = useRef(performance.now())
+  const startTimeRef    = useRef(initialPerf)
   const doneRef         = useRef(false)
   const endedRef        = useRef(false)
   // timed mode or practice countdown: when the game ends (absolute timestamp)
-  const gameEndRef      = useRef(Date.now() + (practiceCountdown ? practiceTimeLimitMs : GAME_DURATION_S * 1000))
+  const gameEndRef      = useRef(initialNow + (practiceCountdown ? practiceTimeLimitMs : GAME_DURATION_S * 1000))
   // free practice mode: when the game started (adjusted to exclude paused time)
-  const gameStartRef    = useRef(Date.now())
+  const gameStartRef    = useRef(initialNow)
   const pausedAtRef     = useRef<number | null>(null)
   const onEndRef        = useLatestRef(onEnd)
   const onQuitRef       = useLatestRef(onQuit)
@@ -74,20 +79,6 @@ export function useGameRound({ targets, practice, practiceTimeLimitMs, globeRef,
     return () => clearInterval(id)
   }, [practice, practiceCountdown, practiceTimeLimitMs, onEndRef])
 
-  // Each new country: go live immediately, unpausing the clock if it was paused
-  useEffect(() => {
-    if (pausedAtRef.current !== null) {
-      const pausedDuration = Date.now() - pausedAtRef.current
-      if (practice && !practiceCountdown) {
-        gameStartRef.current += pausedDuration  // shift start forward to exclude pause
-      } else {
-        gameEndRef.current += pausedDuration    // shift end forward to exclude pause
-      }
-      pausedAtRef.current = null
-    }
-    setIsLive(true)
-  }, [currentIndex, practice, practiceCountdown])
-
   const advance = useCallback(() => {
     if (endedRef.current) return
     const next = currentIndexRef.current + 1
@@ -101,10 +92,21 @@ export function useGameRound({ targets, practice, practiceTimeLimitMs, globeRef,
       onEndRef.current([...resultsRef.current], elapsed)
       return
     }
+    // Unpause the clock, if it was paused, before starting the next round
+    if (pausedAtRef.current !== null) {
+      const pausedDuration = Date.now() - pausedAtRef.current
+      if (practice && !practiceCountdown) {
+        gameStartRef.current += pausedDuration  // shift start forward to exclude pause
+      } else {
+        gameEndRef.current += pausedDuration    // shift end forward to exclude pause
+      }
+      pausedAtRef.current = null
+    }
     setCurrentIndex(next)
     doneRef.current = false
     startTimeRef.current = performance.now()
     setFeedback(null)
+    setIsLive(true)
   }, [practice, practiceCountdown, practiceTimeLimitMs, targets.length, onEndRef])
 
   const handleSkip = useCallback(() => {

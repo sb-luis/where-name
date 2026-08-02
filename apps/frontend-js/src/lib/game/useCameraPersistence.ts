@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { useGame } from './GameContext'
 import type { UserStatus } from '@/lib/multiplayer/types'
@@ -18,14 +18,13 @@ export function useCameraPersistence(status: UserStatus) {
   // Read once on mount — cameraOrientationRef is a ref (mutating it doesn't
   // trigger re-renders), and this is meant as a one-time restore of the last
   // orientation, not something that should react to later writes.
-  const initialPosition = useMemo(() => {
-    return cameraOrientationRef.current ?? undefined
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // eslint-disable-next-line react-hooks/refs -- deliberate one-time read, not a re-render dependency
+  const initialPosition = cameraOrientationRef.current ?? undefined
 
   const handleCameraChange = (lat: number, lng: number) => {
     cameraOrientationRef.current = { lat, lng }
   }
 
+  // eslint-disable-next-line react-hooks/refs 
   return { initialPosition, handleCameraChange }
 }

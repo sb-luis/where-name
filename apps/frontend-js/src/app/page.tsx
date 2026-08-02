@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { WelcomePage } from '@/components/multiplayer/WelcomePage'
 import { PracticeSetupModal } from '@/components/ui/PracticeSetupModal'
@@ -29,7 +29,7 @@ export default function Page() {
   const router = useRouter()
   const { emitCursorMove, emitStatus, sessionInactive } = useSocket()
   const { cursors }  = usePresence()
-  const { countryNames, startGame, startPractice, cameraOrientationRef } = useGame()
+  const { countryNames, startPractice, cameraOrientationRef } = useGame()
   const { user } = useAuth()
   const { data: achievementsData } = useAchievements(!!user)
   const unlockedCount = totalUnlocked(achievementsData?.unlocks ?? DEFAULT_UNLOCKS)
@@ -38,15 +38,11 @@ export default function Page() {
 
   useEffect(() => { emitStatus('home') }, [emitStatus])
 
-  const initialPosition = useMemo(() => {
-    if (cameraOrientationRef.current) return cameraOrientationRef.current
-    return randomLatLng()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // eslint-disable-next-line react-hooks/refs -- deliberate one-time read, not a re-render dependency
+  const initialPosition = cameraOrientationRef.current ?? randomLatLng()
 
   if (sessionInactive) return null
 
-  const handleStart = () => { startGame(); router.push('/play') }
   const handlePractice = () => { setShowPracticeModal(true) }
   const handlePracticeConfirm = (timeLimitMs: number | null, continents: Continent[], difficulty: Difficulty) => {
     setShowPracticeModal(false)
@@ -71,7 +67,6 @@ export default function Page() {
   return (
     <>
       <WelcomePage
-        onStart={handleStart}
         onPractice={handlePractice}
         onExplore={handleExplore}
         exploreLocked={!user}

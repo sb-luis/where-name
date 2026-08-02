@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import NumberFlow from '@number-flow/react'
 import { PresenceGlobe } from './PresenceGlobe'
@@ -10,7 +9,6 @@ import { AuthButton } from '@/components/auth/AuthButton'
 import type { CursorData } from '@/lib/multiplayer/types'
 
 interface Props {
-  onStart:          () => void
   onPractice?:      () => void
   onExplore?:       () => void
   /** Explore is available, but locked behind sign-up — render it muted while keeping it clickable. */
@@ -29,7 +27,6 @@ function formatMs(ms: number): { value: number; unit: string } {
 }
 
 export function WelcomePage({
-  onStart,
   onPractice,
   onExplore,
   exploreLocked = false,
@@ -40,13 +37,13 @@ export function WelcomePage({
   onCursorMove,
   onCameraChange,
 }: Props) {
-  // Captured synchronously at mount — no effect needed, no risk of a
-  // stale-zero if the interval fires before useEffect runs.
   const [loadStartMs] = useState(() => performance.now())
 
   const [liveMs, setLiveMs]               = useState(0)
-  const [fetchMs, setFetchMs]             = useState<number | null>(null)
-  const [animatedCount, setAnimatedCount] = useState(0)
+  // Seeded from props in case data is already loaded at mount (loading can
+  // be false on the very first render, so a true→false transition may never occur).
+  const [fetchMs, setFetchMs]             = useState<number | null>(() => (!loading && countryCount > 0 ? 0 : null))
+  const [animatedCount, setAnimatedCount] = useState(() => (!loading && countryCount > 0 ? countryCount : 0))
 
   useEffect(() => {
     if (!loading) return
@@ -57,14 +54,20 @@ export function WelcomePage({
     return () => clearInterval(id)
   }, [loading, loadStartMs])
 
-  useEffect(() => {
-    if (!loading && countryCount > 0 && fetchMs === null)
-      setFetchMs(Math.round(performance.now() - loadStartMs))
-  }, [loading, countryCount, fetchMs, loadStartMs])
+  const [prevLoading, setPrevLoading] = useState(loading)
+  if (loading !== prevLoading) {
+    setPrevLoading(loading)
+    if (!loading && countryCount > 0) {
+      if (fetchMs === null) setFetchMs(liveMs)
+      setAnimatedCount(countryCount)
+    }
+  }
 
-  useEffect(() => {
-    if (countryCount > 0) setAnimatedCount(countryCount)
-  }, [countryCount])
+  const [prevCountryCount, setPrevCountryCount] = useState(countryCount)
+  if (countryCount !== prevCountryCount) {
+    setPrevCountryCount(countryCount)
+    if (countryCount > 0 && !loading) setAnimatedCount(countryCount)
+  }
 
   const displayMs = fetchMs ?? liveMs
   const { value: fetchValue, unit: fetchUnit } = formatMs(displayMs)

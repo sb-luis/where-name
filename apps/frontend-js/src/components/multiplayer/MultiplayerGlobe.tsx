@@ -220,9 +220,8 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
       const level = Math.max(lodForFov(f), minLodLevelRef.current) as 0 | 1 | 2
       if (level !== currentLevelRef.current) {
         currentLevelRef.current = level
-        loadedRef.current[level]
-          ? applyLod(level)
-          : loadLod(level, loadedLevel => { if (lodForFov(fovRef.current) === loadedLevel) applyLod(loadedLevel) })
+        if (loadedRef.current[level]) applyLod(level)
+        else loadLod(level, loadedLevel => { if (lodForFov(fovRef.current) === loadedLevel) applyLod(loadedLevel) })
       }
     }, [pc, applyLod, loadLod, loadedRef, onFovChangeRef, minLodLevelRef])
 
