@@ -4,6 +4,7 @@ const ALLOWED_ORIGINS = new Set([
 	"https://luis.earth", // prod
 	"https://staging.where.name", // staging
 	"http://localhost:3000", // dev
+	"http://localhost:4321", // dev
 ]);
 
 const VALID_KEYS = new Set([
