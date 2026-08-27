@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { PillGroup } from '@/components/ui/PillGroup'
+import { PillGroup, pillActive, pillInactive, pillDisabled } from '@/components/ui/PillGroup'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { useAchievements } from '@/lib/achievements/useAchievements'
 import { CONTINENTS, type Continent } from '@/lib/game/countries'
@@ -109,11 +109,6 @@ function limitingContinents(continents: Continent[], unlocks: Record<Continent, 
   return continents.filter(c => DIFFICULTIES.indexOf(unlocks[c] ?? 'easy') === maxRank)
 }
 
-const pillBase = 'rounded-full px-4 py-1.5 text-sm font-semibold transition-all duration-150 select-none'
-const pillActive   = `${pillBase} bg-gray-900 text-white cursor-pointer active:scale-95`
-const pillInactive = `${pillBase} bg-black/6 text-gray-600 hover:bg-black/10 cursor-pointer active:scale-95`
-const pillLocked   = `${pillBase} bg-black/6 text-gray-600 blur-[2.5px] cursor-not-allowed`
-
 interface Props {
   onConfirm: (timeLimitMs: number | null, continents: Continent[], difficulty: Difficulty) => void
   onClose:   () => void
@@ -170,26 +165,29 @@ export function PracticeSetupModal({ onConfirm, onClose, onSignUp }: Props) {
     <Modal className="px-7 py-6 mx-6 w-full max-w-md space-y-5" onClose={onClose}>
       <div className="space-y-1">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">Practice</p>
-        <p className={`text-base font-bold text-gray-900 ${locked ? 'line-through decoration-2' : ''}`}>
+        <p className="text-base font-bold text-gray-900">
           set a time limit
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {OPTIONS.map(opt => (
-          <button
-            key={String(opt.ms)}
-            onClick={() => !locked && setSelectedTime(opt.ms)}
-            disabled={locked}
-            className={locked ? pillLocked : selectedTime === opt.ms ? pillActive : pillInactive}
-          >
-            {opt.label}
-          </button>
-        ))}
+        {OPTIONS.map(opt => {
+          const isSelected = locked ? opt.ms === DEFAULT_LIMIT_MS : selectedTime === opt.ms
+          return (
+            <button
+              key={String(opt.ms)}
+              onClick={() => !locked && setSelectedTime(opt.ms)}
+              disabled={locked}
+              className={isSelected ? pillActive : locked ? pillDisabled : pillInactive}
+            >
+              {opt.label}
+            </button>
+          )
+        })}
       </div>
 
       <div className="space-y-1">
-        <p className={`text-base font-bold text-gray-900 ${locked ? 'line-through decoration-2' : ''}`}>
+        <p className="text-base font-bold text-gray-900">
           choose continents
         </p>
       </div>
@@ -200,7 +198,7 @@ export function PracticeSetupModal({ onConfirm, onClose, onSignUp }: Props) {
             key={continent}
             onClick={() => !locked && toggleContinent(continent)}
             disabled={locked}
-            className={locked ? pillLocked : selectedContinents.includes(continent) ? pillActive : pillInactive}
+            className={locked || selectedContinents.includes(continent) ? pillActive : pillInactive}
           >
             {CONTINENT_LABELS[continent]}
           </button>
@@ -208,7 +206,7 @@ export function PracticeSetupModal({ onConfirm, onClose, onSignUp }: Props) {
       </div>
 
       <div className="space-y-1">
-        <p className={`text-base font-bold text-gray-900 ${locked ? 'line-through decoration-2' : ''}`}>
+        <p className="text-base font-bold text-gray-900">
           difficulty
         </p>
       </div>
