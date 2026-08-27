@@ -35,8 +35,8 @@ export function SignUpCtaModal({ message, analyticsContext, onClose, onSuccess, 
     <Modal className={className} onClose={handleSkip} closeOnBackdropClick={false}>
       {children}
 
-      <h2 className="text-5xl italic font-bold text-center text-gray-900">
-        {message}
+      <h2 className="text-5xl italic font-bold text-center text-gray-900 max-w-80 m-auto pb-5">
+        sign up to {message}
       </h2>
 
       <hr className="text-gray-200 pb-5" />
